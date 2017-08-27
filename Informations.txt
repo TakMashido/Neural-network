@@ -2,5 +2,6 @@ Simple backpropagation-neural networks liblaries.
 
 If you find any bug, or Polish named variable please sent me email(takmashido2@gmail.com).
 I'm also want to know about any new function you want to see there.
+I'll ad it somewhere on my TODO-queue.
 
 Sorry for my english.
