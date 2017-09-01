@@ -1,6 +1,5 @@
 package liblaries.neuralNetwork.learning;
 
-import java.util.Arrays;
 import java.util.Random;
 
 import org.jocl.CL;
@@ -45,37 +44,37 @@ public class LNetwork{
 	private cl_kernel calculateWeightsKernel;
 	
 	private cl_mem[] weightsCL;							//[a] a->warstwa
-	private cl_mem[] deltaWeightsCL;						//[a]
+	private cl_mem[] deltaWeightsCL;					//[a]
 	private cl_mem[] outputsCL;							//[a]					this is not full usage yet. can be useful when I'll add symulating functions on GPU
 	private cl_mem[] errorCL;
 	
 	private boolean learning=false;
 	
 	public LNetwork(){}
-	public LNetwork(int Wejœcia,int[] wielkoœæWarstw,Function function) {
-		createNSieæ(Wejœcia, wielkoœæWarstw, function);
-		przygotujDane();
+	public LNetwork(int inputsNumber,int[] layersSize,Function function) {
+		createLNetwork(inputsNumber, layersSize, function);
+		prepareData();
 	}
-	public LNetwork(int Wejœcia,int[] wielkoœæWarstw,Function function,boolean openCLUse) {
-		createNSieæ(Wejœcia, wielkoœæWarstw, function);
+	public LNetwork(int inputsNumber,int[] layersSize,Function function,boolean openCLUse) {
+		createLNetwork(inputsNumber, layersSize, function);
 		if(openCLUse) {
 			initializeOpenCL();
 		}
 		else
-			przygotujDane();
+			prepareData();
 	}
-	private void createNSieæ(int Wejœcia,int[] wielkoœæWarstw,Function function){
-		inputsNumber=Wejœcia;
+	private void createLNetwork(int inputsNumber,int[] layersSize,Function function){
+		this.inputsNumber=inputsNumber;
 		
 		Random random=new Random();
 		
-		for(int i=0;i<wielkoœæWarstw.length;i++){
+		for(int i=0;i<layersSize.length;i++){
 			if(i==0){
-				weights[i]=new float[wielkoœæWarstw[i]][inputsNumber];
+				weights[i]=new float[layersSize[i]][inputsNumber];
 				
-				float maxWaga=1/(float)(wielkoœæWarstw[i]/20+1)+0.000000000000000001f;
+				float maxWaga=1/(float)(layersSize[i]/20+1)+0.000000000000000001f;
 				
-				for(int j=0;i<wielkoœæWarstw[i];j++){					
+				for(int j=0;i<layersSize[i];j++){					
 					for(int k=0;i<inputsNumber;k++){
 						while(true){
 							float waga=random.nextFloat();
@@ -89,13 +88,13 @@ public class LNetwork{
 				}
 			}
 			else{
-				weights[i]=new float[wielkoœæWarstw[i]][weights[i-1].length];
+				weights[i]=new float[layersSize[i]][weights[i-1].length];
 				
-				float maxWaga=1/(float)(wielkoœæWarstw[i]/20+1)+0.000000000000000001f;
+				float maxWeight=1/(float)(layersSize[i]/20+1)+0.000000000000000001f;
 				
-				for(int j=0;i<wielkoœæWarstw[i];j++){					
-					for(int k=0;i<wielkoœæWarstw[i-1];k++){
-						weights[i][j][k]=random.nextFloat()%maxWaga;
+				for(int j=0;i<layersSize[i];j++){					
+					for(int k=0;i<layersSize[i-1];k++){
+						weights[i][j][k]=random.nextFloat()%maxWeight;
 					}
 				}
 			}
@@ -131,14 +130,14 @@ public class LNetwork{
 		program=CL.clCreateProgramWithSource(context, 2, new String[] {openCLprogram,function.getOpenCLProgram()}, null, null);
 		CL.clBuildProgram(program, 1, new cl_device_id[] {devices[deviceIndex]}, null, null, null);
 		
-		simulateKernel=CL.clCreateKernel(program, "symuluj", null);
-		countOutputsKernel=CL.clCreateKernel(program, "sumujWyjscia", null);
+		simulateKernel=CL.clCreateKernel(program, "simulate", null);
+		countOutputsKernel=CL.clCreateKernel(program, "sumOutput", null);
 		outputLayerErrorKernel=CL.clCreateKernel(program, "outputError", null);
-		calculateErrorKernel=CL.clCreateKernel(program, "liczBlad", null);
-		countErrorKernel=CL.clCreateKernel(program, "sumujBlad", null);
-		calculateWeightsKernel=CL.clCreateKernel(program, "liczWagi", null);
+		calculateErrorKernel=CL.clCreateKernel(program, "calculateError", null);
+		countErrorKernel=CL.clCreateKernel(program, "countError", null);
+		calculateWeightsKernel=CL.clCreateKernel(program, "calculateWeights", null);
 		
-		przygotujCLMem();
+		prepareCLMem();
 		
 		openCLLoaded=true;
 	}
@@ -154,7 +153,7 @@ public class LNetwork{
 			le.clearCL();
 		}
 	}
-	private void przygotujCLMem() {
+	private void prepareCLMem() {
 		weightsCL=new cl_mem[weights.length];
 		deltaWeightsCL=new cl_mem[weights.length];
 		outputsCL=new cl_mem[weights.length];
@@ -184,7 +183,7 @@ public class LNetwork{
 			le.initializeCL(context);
 		}
 	}
-	public void przygotujDane() {
+	public void prepareData() {
 		deltaWeights=new float[weights.length][][];
 		outputs=new float[weights.length][];
 		error=new float[weights.length][];
@@ -242,11 +241,11 @@ public class LNetwork{
 	public final void setWeights(float[][][] weights) {
 		if(!learning) {
 			this.weights=weights;
+			prepareData();
 			
 			if(openCLLoaded) {
-				przygotujDane();
 				clearCLMem();
-				przygotujCLMem();
+				prepareCLMem();
 			}
 		}else
 			throw new NeuralException(1);
@@ -257,9 +256,9 @@ public class LNetwork{
 		else
 			throw new NeuralException(1);
 	}
-	public final void setCU(LearningSeqence[] cu) {
+	public final void setLS(LearningSeqence[] ls) {
 		if(!learning) {
-			learningSeqence=cu;
+			learningSeqence=ls;
 			
 			if(openCLLoaded) {
 				for(LearningSeqence le:learningSeqence) {
@@ -323,41 +322,41 @@ public class LNetwork{
 					inputDataCL=outputsCL[nrLayer-1];
 				}
 				
-				int neurony=layersSize[nrLayer+1];
-				int po³¹czenia=layersSize[nrLayer];
+				int neurons=layersSize[nrLayer+1];
+				int connections=layersSize[nrLayer];
 				
-				cl_mem preWyjœciaCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_HOST_NO_ACCESS, Sizeof.cl_float*neurony*po³¹czenia, null, null);
+				cl_mem preOutputCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_HOST_NO_ACCESS, Sizeof.cl_float*neurons*connections, null, null);
 				
 				CL.clSetKernelArg(simulateKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrLayer]));
 				CL.clSetKernelArg(simulateKernel, 1, Sizeof.cl_mem, Pointer.to(inputDataCL));
-				CL.clSetKernelArg(simulateKernel, 2, Sizeof.cl_mem, Pointer.to(preWyjœciaCL));
-				CL.clSetKernelArg(simulateKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {po³¹czenia}));
-				CL.clEnqueueNDRangeKernel(commandQueue, simulateKernel, 2, null ,new long[] {neurony,po³¹czenia}, new long[]{1,1}, 0, null, null);
+				CL.clSetKernelArg(simulateKernel, 2, Sizeof.cl_mem, Pointer.to(preOutputCL));
+				CL.clSetKernelArg(simulateKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {connections}));
+				CL.clEnqueueNDRangeKernel(commandQueue, simulateKernel, 2, null ,new long[] {neurons,connections}, new long[]{1,1}, 0, null, null);
 								
-				CL.clSetKernelArg(countOutputsKernel, 0, Sizeof.cl_mem, Pointer.to(preWyjœciaCL));
+				CL.clSetKernelArg(countOutputsKernel, 0, Sizeof.cl_mem, Pointer.to(preOutputCL));
 				CL.clSetKernelArg(countOutputsKernel, 1, Sizeof.cl_mem, Pointer.to(outputsCL[nrLayer]));
-				CL.clSetKernelArg(countOutputsKernel, 2, Sizeof.cl_int, Pointer.to(new int[] {po³¹czenia}));
-				CL.clEnqueueNDRangeKernel(commandQueue, countOutputsKernel, 1, null, new long[] {neurony}, new long[] {1}, 0, null, null);
+				CL.clSetKernelArg(countOutputsKernel, 2, Sizeof.cl_int, Pointer.to(new int[] {connections}));
+				CL.clEnqueueNDRangeKernel(commandQueue, countOutputsKernel, 1, null, new long[] {neurons}, new long[] {1}, 0, null, null);
 				
-				CL.clReleaseMemObject(preWyjœciaCL);
+				CL.clReleaseMemObject(preOutputCL);
 				}
 		}else {
-			for(int nrWarstwy=0;nrWarstwy<layersNumber;nrWarstwy++){
+			for(int nrLayer=0;nrLayer<layersNumber;nrLayer++){
 				float[] inputData;
-				if(nrWarstwy==0){														//Warstwa wejœciowa
+				if(nrLayer==0){														//Warstwa wejœciowa
 					inputData=learningSeqence[nrElement].inputs;
 				}
 				else{																	//Warstwa wyjœciowa
-					inputData=outputs[nrWarstwy-1];
+					inputData=outputs[nrLayer-1];
 				}
 				
-				for(int i=0;i<weights[nrWarstwy].length;i++) {
-					outputs[nrWarstwy][i]=0;
-					for(int j=0;j<weights[nrWarstwy][i].length;j++){
-						outputs[nrWarstwy][i]+=weights[nrWarstwy][i][j]*inputData[j];
+				for(int i=0;i<weights[nrLayer].length;i++) {
+					outputs[nrLayer][i]=0;
+					for(int j=0;j<weights[nrLayer][i].length;j++){
+						outputs[nrLayer][i]+=weights[nrLayer][i][j]*inputData[j];
 					}
 					
-					outputs[nrWarstwy][i]=function.function(outputs[nrWarstwy][i]);
+					outputs[nrLayer][i]=function.function(outputs[nrLayer][i]);
 				}
 			}
 		}
@@ -366,46 +365,46 @@ public class LNetwork{
 		boolean pom=true;																			//Zmienna pomocnicza, optymalizuj¹ca
 		
 		if(openCLLoaded) {
-			for(int nrWarstwy=layersNumber-1;nrWarstwy>-1;nrWarstwy--){
+			for(int nrLayer=layersNumber-1;nrLayer>-1;nrLayer--){
 				if(pom){
-					CL.clSetKernelArg(outputLayerErrorKernel, 0, Sizeof.cl_mem, Pointer.to(errorCL[nrWarstwy]));
-					CL.clSetKernelArg(outputLayerErrorKernel, 1, Sizeof.cl_mem, Pointer.to(outputsCL[nrWarstwy]));
+					CL.clSetKernelArg(outputLayerErrorKernel, 0, Sizeof.cl_mem, Pointer.to(errorCL[nrLayer]));
+					CL.clSetKernelArg(outputLayerErrorKernel, 1, Sizeof.cl_mem, Pointer.to(outputsCL[nrLayer]));
 					CL.clSetKernelArg(outputLayerErrorKernel, 2, Sizeof.cl_mem, Pointer.to(learningSeqence[nrElementu].outputsCL));
 					CL.clEnqueueNDRangeKernel(commandQueue, outputLayerErrorKernel, 1, null, new long[] {layersSize[layersNumber]}, new long[] {1,1}, 0, null, null);
 					pom=false;
 				}else{																					//warstwy ukryte
-					int neurony=layersSize[nrWarstwy+1];
-					int po³¹czenia=layersSize[nrWarstwy+1];
+					int neurony=layersSize[nrLayer+1];
+					int po³¹czenia=layersSize[nrLayer+1];
 					
 					cl_mem preB³¹dCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_HOST_NO_ACCESS, Sizeof.cl_float*neurony*po³¹czenia, null, null);
 					
-					CL.clSetKernelArg(calculateErrorKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrWarstwy+1]));
-					CL.clSetKernelArg(calculateErrorKernel, 1, Sizeof.cl_mem, Pointer.to(errorCL[nrWarstwy+1]));
+					CL.clSetKernelArg(calculateErrorKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrLayer+1]));
+					CL.clSetKernelArg(calculateErrorKernel, 1, Sizeof.cl_mem, Pointer.to(errorCL[nrLayer+1]));
 					CL.clSetKernelArg(calculateErrorKernel, 2, Sizeof.cl_mem, Pointer.to(preB³¹dCL));
 					CL.clSetKernelArg(calculateErrorKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {po³¹czenia}));
 					CL.clEnqueueNDRangeKernel(commandQueue, calculateErrorKernel, 2, null, new long[] {neurony,po³¹czenia}, new long[] {1,1}, 0, null, null);
 					
 					CL.clSetKernelArg(countErrorKernel, 0, Sizeof.cl_mem, Pointer.to(preB³¹dCL));
-					CL.clSetKernelArg(countErrorKernel, 1, Sizeof.cl_mem, Pointer.to(errorCL[nrWarstwy]));
+					CL.clSetKernelArg(countErrorKernel, 1, Sizeof.cl_mem, Pointer.to(errorCL[nrLayer]));
 					CL.clSetKernelArg(countErrorKernel, 2, Sizeof.cl_int, Pointer.to(new int[] {neurony}));
 					CL.clEnqueueNDRangeKernel(commandQueue, countErrorKernel, 1, null, new long[] {neurony}, new long[] {1}, 0, null, null);
 				}
 			}
 		}else {
-			for(int nrWarstwy=weights.length-1;nrWarstwy>-1;nrWarstwy--){
+			for(int nrLayer=weights.length-1;nrLayer>-1;nrLayer--){
 				if(pom){																				//warstwa wyjœciowa
-					for(int i=0;i<weights[nrWarstwy].length;i++){
-						error[nrWarstwy][i]=learningSeqence[nrElementu].outputs[i]-outputs[nrWarstwy][i];		//Nie ma potrzeby zerowania b³êdu
+					for(int i=0;i<weights[nrLayer].length;i++){
+						error[nrLayer][i]=learningSeqence[nrElementu].outputs[i]-outputs[nrLayer][i];		//Nie ma potrzeby zerowania b³êdu
 					}
 					pom=false;
 				}else{																					//warstwy ukryte
-					for(int i=weights[nrWarstwy].length-1;i>-1;i--){										//Zerowanie b³êdu
-						error[nrWarstwy][i]=0;
+					for(int i=weights[nrLayer].length-1;i>-1;i--){										//Zerowanie b³êdu
+						error[nrLayer][i]=0;
 					}
 					
-					for(int i=weights[nrWarstwy+1].length-1;i>-1;i--){
-						for(int j=weights[nrWarstwy+1][i].length-1;j>-1;j--){
-							error[nrWarstwy][j]+=error[nrWarstwy+1][i]*weights[nrWarstwy+1][i][j];
+					for(int i=weights[nrLayer+1].length-1;i>-1;i--){
+						for(int j=weights[nrLayer+1][i].length-1;j>-1;j--){
+							error[nrLayer][j]+=error[nrLayer+1][i]*weights[nrLayer+1][i][j];
 						}
 					}
 				}
@@ -418,7 +417,7 @@ public class LNetwork{
 		}
 	}
 	public void countWeights(int NrElementu,float n,float m){
-		/*if(openCLLoaded) {																																	//TODO SNCL usun¹æ debug messages
+		/*if(openCLLoaded) {																																	//TODO NNOCL daleta debug messages
 			float[][] warstwa =new float[2][];
 			warstwa[0]=new float[weights[0].length*inputsNumber];
 			warstwa[1]=new float[weights[0].length*weights[1].length];
@@ -469,9 +468,9 @@ public class LNetwork{
 	}
 	public void endLearning() {
 		if(openCLLoaded) {
-			float[] wagiBuffer;
-			int neurony;
-			int po³¹czenia;
+			float[] weightsBuffer;
+			int neurons;
+			int connections;
 			int index;
 			
 			if(weights==null) {
@@ -483,16 +482,16 @@ public class LNetwork{
 			}
 			
 			for(int i=0;i<layersNumber;i++) {
-				neurony=layersSize[i+1];
-				po³¹czenia=layersSize[i];
+				neurons=layersSize[i+1];
+				connections=layersSize[i];
 				index=0;
 				
-				wagiBuffer=new float[layersSize[i+1]*layersSize[i]];
-				CL.clEnqueueReadBuffer(commandQueue, weightsCL[i], CL.CL_TRUE, 0, Sizeof.cl_float*wagiBuffer.length, Pointer.to(wagiBuffer), 0, null, null);
+				weightsBuffer=new float[layersSize[i+1]*layersSize[i]];
+				CL.clEnqueueReadBuffer(commandQueue, weightsCL[i], CL.CL_TRUE, 0, Sizeof.cl_float*weightsBuffer.length, Pointer.to(weightsBuffer), 0, null, null);
 				
-				for(int j=0;j<neurony;j++) {
-					for(int k=0;k<po³¹czenia;k++) {
-						weights[i][j][k]=wagiBuffer[index++];
+				for(int j=0;j<neurons;j++) {
+					for(int k=0;k<connections;k++) {
+						weights[i][j][k]=weightsBuffer[index++];
 					}
 				}
 			}
@@ -504,61 +503,61 @@ public class LNetwork{
 	}
 	public void miksujCU(Random random){
 		int ilEl=learningSeqence.length;											//zmienna pomocnicza optymalizuj¹ca
-		LearningSeqence[] newCU=new LearningSeqence[ilEl];
-		boolean[] jest=new boolean[ilEl];									//Informuje program o obecnoœci danego elementu w newCU
+		LearningSeqence[] newLS=new LearningSeqence[ilEl];
+		boolean[] included=new boolean[ilEl];									//Informuje program o obecnoœci danego elementu w newCU
 		
 		int index;
 				
 		for(LearningSeqence cu:learningSeqence){
 			while(true){
 				index=random.nextInt(ilEl);
-				if(!jest[index]){
-					newCU[index]=cu;
-					jest[index]=true;
+				if(!included[index]){
+					newLS[index]=cu;
+					included[index]=true;
 					break;
 				}
 			}
 		}
 		
-		learningSeqence=newCU;
+		learningSeqence=newLS;
 	}
 	
 	private static final String openCLprogram=
-			  "__kernel void symuluj(__global const float *wagi,__global const float *wejscia,__global float *preWyjscia,const int ilPolaczen) {"
-			+ "		int polaczenie=get_global_id(1);"
-			+ "		int index=get_global_id(0)*ilPolaczen+polaczenie;"
+			  "__kernel void simulate(__global const float *weights,__global const float *input,__global float *preOutput,const int connectionsNr) {"
+			+ "		int connection=get_global_id(1);"
+			+ "		int index=get_global_id(0)*connectionsNr+connection;"
 			+ "		"
-			+ "		preWyjscia[index]=wejscia[polaczenie]*wagi[index];"
+			+ "		preOutput[index]=input[connection]*weights[index];"
 			+ "	}\n"
 			+ ""
 			+ "__kernel void outputError(__global float *error, __global float *outputs,__global float *goodOutputs){"
 			+ "		int neuron=get_global_id(0);"
 			+ "		error[neuron]=goodOutputs[neuron]-outputs[neuron];"
 			+ "}\n"
-			+ "__kernel void liczBlad(__global float *wagi,__global float *bladPop,__global float *preBlad,const int ilPolaczen){"
-			+ "		int polaczenie=get_global_id(1);"
-			+ "		int index=polaczenie*ilPolaczen+get_global_id(0);"
+			+ "__kernel void calculateError(__global float *weights,__global float *errorUp,__global float *preError,const int connectionsNumber){"
+			+ "		int connection=get_global_id(1);"
+			+ "		int index=connection*connectionsNumber+get_global_id(0);"
 			+ "		"
-			+ "		preBlad[index]=bladPop[polaczenie]*wagi[index];"
+			+ "		preError[index]=errorUp[connection]*weights[index];"
 			+ "}\n"
-			+  "__kernel void sumujBlad(__global float *preBlad,__global float *blad, int liczbaPolaczen){"
+			+  "__kernel void countError(__global float *preError,__global float *error, int connectionsNumber){"
 			+ "		int neuron=get_global_id(0);"
 			+ "		"
 			+ "		int index=neuron;"
-			+ "		blad[neuron]=0;"
-			+ "		for(int i=0;i<liczbaPolaczen;i++){"
-			+ "			blad[neuron]+=preBlad[index];"
-			+ "			index+=liczbaPolaczen;"
+			+ "		error[neuron]=0;"
+			+ "		for(int i=0;i<connectionsNumber;i++){"
+			+ "			error[neuron]+=preError[index];"
+			+ "			index+=connectionsNumber;"
 			+ "		}"
 			+ "}\n"
 			+ ""
-			+ "__kernel void liczWagi(__global float *wagi,__global float *deltaWagi,__global float *blad,__global float *wejscia,int ilPolaczen, float n, float m){"
+			+ "__kernel void calculateWeights(__global float *weights,__global float *deltaWeights,__global float *error,__global float *input,int connectionsNumber, float n, float m){"
 			+ "		int neuron=get_global_id(0);"
-			+ "		int polaczenie=get_global_id(1);"
-			+ "		int index=neuron*ilPolaczen+polaczenie;"
+			+ "		int connection=get_global_id(1);"
+			+ "		int index=neuron*connectionsNumber+connection;"
 			+ "		"
-			+ "		float delta=n*wejscia[polaczenie]*blad[neuron]+m*deltaWagi[index];"						//FIXME SNOCL okreœliæ miejsce zastosowania pochodnej funkcji we wzorze
-			+ "		wagi[index]+=delta;"
-			+ "		deltaWagi[index]=delta;"
+			+ "		float delta=n*input[connection]*error[neuron]+m*deltaWeights[index];"						//FIXME SNOCL fint where put the derivative of a function
+			+ "		weights[index]+=delta;"
+			+ "		deltaWeights[index]=delta;"
 			+ "}";
 }

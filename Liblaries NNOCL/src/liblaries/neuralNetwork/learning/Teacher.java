@@ -83,8 +83,8 @@ public class Teacher{
 		cycleNumber=LiczbaCykli;
 	}
 	public Teacher(String NazwaSN,String NazwaCU,long LiczbaCykli,float N,float M) throws FileVersionException, IOException, NeuralException{
-		network=FileN.wczytajNSieæ(NazwaSN);
-		network.setCU(FileN.wczytajCU(NazwaCU));
+		network=FileN.readLNetwork(NazwaSN);
+		network.setLS(FileN.readLS(NazwaCU));
 		checkTS();
 				
 		cycleNumber=LiczbaCykli;

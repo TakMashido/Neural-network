@@ -88,7 +88,7 @@ public class Network{
 		program=CL.clCreateProgramWithSource(context, 2, new String[] {openCLprogram,function.getOpenCLProgram()}, null, null);
 		CL.clBuildProgram(program, 1, new cl_device_id[] {devices[0]}, null, null, null);
 		
-		symulujKernel=CL.clCreateKernel(program, "symuluj", null);
+		symulujKernel=CL.clCreateKernel(program, "sumOutput", null);
 		sumujKernel=CL.clCreateKernel(program, "sumujWyjscia", null);
 		
 		przygotujCLMem();

@@ -9,8 +9,8 @@ import liblaries.neuralNetwork.functions.Function;
 import liblaries.neuralNetwork.functions.FunctionList;
 
 public class FileS {
-	public static Network readNetwork(String Nazwa) throws IOException{
-		DataInputStream in=new DataInputStream(new FileInputStream(Nazwa+".SN"));
+	public static Network readNetwork(String fileName) throws IOException{
+		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".NN"));
 		
 		float[][][] weights;
 		byte version=in.readByte();
