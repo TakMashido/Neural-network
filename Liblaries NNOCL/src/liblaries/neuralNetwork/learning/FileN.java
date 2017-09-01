@@ -11,46 +11,46 @@ import liblaries.neuralNetwork.errors.FileVersionException;
 import liblaries.neuralNetwork.functions.FunctionList;
 
 public class FileN {
-	public static void zapiszCU(String nazwaPliku,LearningSeqence[] dane) throws IOException{
-		DataOutputStream out=new DataOutputStream(new FileOutputStream(nazwaPliku+".SNcu"));
+	public static void saveLS(String fileName,LearningSeqence[] data) throws IOException{
+		DataOutputStream out=new DataOutputStream(new FileOutputStream(fileName+".LS"));
 		
-		out.writeByte(-128);							//Wersja pliku
+		out.writeByte(-128);							//File version
 		
-		out.writeInt(dane.length);
-		out.writeInt(dane[0].inputs.length);
-		out.writeInt(dane[0].outputs.length);
+		out.writeInt(data.length);
+		out.writeInt(data[0].inputs.length);
+		out.writeInt(data[0].outputs.length);
 		
-		for(LearningSeqence element:dane){
-			for(double wejœcie:element.inputs){
-				out.writeDouble(wejœcie);
+		for(LearningSeqence element:data){
+			for(float input:element.inputs){
+				out.writeDouble(input);
 			}
-			for(double wyjœcie:element.outputs){
+			for(float wyjœcie:element.outputs){
 				out.writeDouble(wyjœcie);
 			}
 		}
 		
 		out.close();
 	}
-	public static LearningSeqence[] wczytajCU(String name) throws FileVersionException,IOException{
-		DataInputStream in=new DataInputStream(new FileInputStream(name+".SNcu"));		
+	public static LearningSeqence[] readLS(String fileName) throws FileVersionException,IOException{
+		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".LS"));		
 		
 		byte version=in.readByte();
 		switch(version){											//Version
 		case -128:
-			int Il_Elementów=in.readInt();
-			int Il_Wejœæ=in.readInt();
-			int Il_Wyjœæ=in.readInt();
+			int elementNumber=in.readInt();
+			int inputNumber=in.readInt();
+			int outputNumber=in.readInt();
 			
-			LearningSeqence[] Return=new LearningSeqence[Il_Elementów];
+			LearningSeqence[] Return=new LearningSeqence[elementNumber];
 			
-			for(int i=0;i<Il_Elementów;i++){
-				Return[i].inputs=new float[Il_Wejœæ];
-				Return[i].outputs=new float[Il_Wyjœæ];
+			for(int i=0;i<elementNumber;i++){
+				Return[i].inputs=new float[inputNumber];
+				Return[i].outputs=new float[outputNumber];
 				
-				for(int j=0;j<Il_Wejœæ;j++){
+				for(int j=0;j<inputNumber;j++){
 					Return[i].inputs[j]=(float) in.readDouble();
 				}
-				for(int j=0;j<Il_Wyjœæ;j++){
+				for(int j=0;j<outputNumber;j++){
 					Return[i].outputs[j]=(float) in.readDouble();
 				}
 			}
@@ -60,19 +60,19 @@ public class FileN {
 		}
 	}
 
-	public static LNetwork wczytajNSieæ(String Nazwa) throws FileVersionException,IOException{
-		LNetwork sieæ=new LNetwork();
+	public static LNetwork readLNetwork(String fileName) throws FileVersionException,IOException{
+		LNetwork network=new LNetwork();
 		
-		DataInputStream in=new DataInputStream(new FileInputStream(Nazwa+".SN"));
+		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".NN"));
 		
 		byte version=in.readByte();											//file version
 		switch(version){
 		case -128:
-			sieæ.setFunction(FunctionList.getFunction(in.readByte()));
+			network.setFunction(FunctionList.getFunction(in.readByte()));
 			
 			byte layersNumber=in.readByte();
 			int inputNumber=in.readInt();
-			sieæ.setInputNumber(inputNumber);
+			network.setInputNumber(inputNumber);
 			
 			int[] layersSize=new int[layersNumber];	
 			
@@ -91,33 +91,33 @@ public class FileN {
 				}
 			}
 			
-			sieæ.setWeights(weights);
+			network.setWeights(weights);
 			
 			break;
 			default:in.close();throw new FileVersionException("Don't support file verion newer then -128. This file version: "+version);
 		}
 		in.close();
 			
-		return sieæ;
+		return network;
 	}
-	public static void zapiszNSieæ(String nazwaPliku,LNetwork sieæ) throws IOException{				//zapisuje sieæ z klasy uczenie
-		File file=new File(nazwaPliku+".SN");
+	public static void saveLNetwork(String fileName,LNetwork sieæ) throws IOException{
+		File file=new File(fileName+".NN");
 		file.createNewFile();
 		DataOutputStream save=new DataOutputStream(new FileOutputStream(file));
 		
-		save.writeByte(-128);											//wersja .SN
+		save.writeByte(-128);											//version of .NN
 		
-		save.writeByte(sieæ.getFunction().getFunctionID());					//ID funkcji na wyjœciu
+		save.writeByte(sieæ.getFunction().getFunctionID());
 		
 		float[][][] weights=sieæ.getWeights();
-		save.writeByte(weights.length);									//iloœæ warstw
+		save.writeByte(weights.length);
 		
-		save.writeInt(sieæ.getInputNumber());							//iloœæ wejœæ
+		save.writeInt(sieæ.getInputNumber());
 		
-		for(int i=0;i<weights.length;i++){								//iloœæ neuronów w ka¿dej warstwie
+		for(int i=0;i<weights.length;i++){
 			save.writeInt(weights[i].length);
 		}
-		for(int i=0;i<weights.length;i++){								//waga ka¿dego pol¹czenia
+		for(int i=0;i<weights.length;i++){
 			for(int j=0;j<weights[i].length;j++){
 				for(int k=0;k<weights[i][j].length;k++){
 					save.writeDouble(weights[i][j][k]);
