@@ -4,19 +4,19 @@ public class Squere extends Function{
 	public Squere(){
 		functionID=-126;
 		
-		functionKernelSource=											//TODO SNJOCL sprawdziæ
-				  "__kernel void sumOutput(__global float *preWyjscia,__global float *wyjscia, int liczbaPolaczen){"
+		functionKernelSource=
+				  "__kernel void sumOutput(__global float *preOutput,__global float *output, int connectionNumber){"
 				+ "		int neuron=get_global_id(0);"
-				+ "		int index=neuron*liczbaPolaczen;"
+				+ "		int index=neuron*connectionNumber;"
 				+ "		"
-				+ "		wyjscia[neuron]=0;"
-				+ "		for(int i=0;i<liczbaPolaczen;i++){"
-				+ "			wyjscia[neuron]+=preWyjscia[index+i];"
+				+ "		output[neuron]=0;"
+				+ "		for(int i=0;i<connectionNumber;i++){"
+				+ "			output[neuron]+=preOutput[index+i];"
 				+ "		}"
-				+ "		if(wyjscia[neuron]>0)"
-				+ "			wyjscia[neuron]*=wyjscia[neuron];"
+				+ "		if(output[neuron]>0)"
+				+ "			output[neuron]*=output[neuron];"
 				+ "		else"
-				+ "			wyjscia[neuron]*=wyjscia[neuron]*-1;"
+				+ "			output[neuron]*=output[neuron]*-1;"
 				+ "}";
 	}
 	public float function(float dana){

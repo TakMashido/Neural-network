@@ -1,5 +1,6 @@
 package liblaries.neuralNetwork.learning;
 
+import java.util.Arrays;
 import java.util.Random;
 
 import org.jocl.CL;
@@ -311,7 +312,7 @@ public class LNetwork{
 			learning=true;
 		}else throw new NeuralException(3);
 	}
-	public void NSymulujSieæ(int nrElement){
+	public void LSimulateNetwork(int nrElement){
 		if(openCLLoaded) {
 			for(int nrLayer=0;nrLayer<layersNumber;nrLayer++){
 				cl_mem inputDataCL;
@@ -417,7 +418,7 @@ public class LNetwork{
 		}
 	}
 	public void countWeights(int NrElementu,float n,float m){
-		/*if(openCLLoaded) {																																	//TODO NNOCL daleta debug messages
+		if(openCLLoaded) {																																	//TODO NNOCL daleta debug messages
 			float[][] warstwa =new float[2][];
 			warstwa[0]=new float[weights[0].length*inputsNumber];
 			warstwa[1]=new float[weights[0].length*weights[1].length];
@@ -437,7 +438,7 @@ public class LNetwork{
 			System.out.println("b³¹d=    "+Arrays.toString(error[0])+", "+Arrays.toString(error[1]));
 			System.out.println("wyjœcia= "+Arrays.toString(outputs[0])+" "+Arrays.toString(outputs[1]));
 		}
-		System.out.println();*/
+		System.out.println();
 		
 		if(openCLLoaded) {
 			CL.clSetKernelArg(calculateWeightsKernel, 5, Sizeof.cl_float, Pointer.to(new float[] {n}));
@@ -501,10 +502,10 @@ public class LNetwork{
 	public int getOutputNumber(){
 		return layersSize[layersNumber];
 	}
-	public void miksujCU(Random random){
-		int ilEl=learningSeqence.length;											//zmienna pomocnicza optymalizuj¹ca
+	public void mixLS(Random random){
+		int ilEl=learningSeqence.length;
 		LearningSeqence[] newLS=new LearningSeqence[ilEl];
-		boolean[] included=new boolean[ilEl];									//Informuje program o obecnoœci danego elementu w newCU
+		boolean[] included=new boolean[ilEl];									//True if LS elemnent is already in newLS
 		
 		int index;
 				

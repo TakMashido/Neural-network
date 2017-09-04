@@ -5,15 +5,15 @@ public class Tanh extends Function{
 		functionID=-127;
 		
 		functionKernelSource=
-				  "__kernel void sumOutput(__global float *preWyjscia,__global float *wyjscia, int liczbaPolaczen){"
+				  "__kernel void sumOutput(__global float *preOutput,__global float *output, int connectionNumber){"
 				+ "		int neuron=get_global_id(0);"
-				+ "		int index=neuron*liczbaPolaczen;"
+				+ "		int index=neuron*connectionNumber;"
 				+ "		"
-				+ "		wyjscia[neuron]=0;"
-				+ "		for(int i=0;i<liczbaPolaczen;i++){"
-				+ "			wyjscia[neuron]+=preWyjscia[index+i];"
+				+ "		output[neuron]=0;"
+				+ "		for(int i=0;i<connectionNumber;i++){"
+				+ "			output[neuron]+=preOutput[index+i];"
 				+ "		}"
-				+ "		wyjscia[neuron]=tanh(wyjscia[neuron]);"
+				+ "		output[neuron]=tanh(output[neuron]);"
 				+ "}";
 	}
 	public float function(float dana){

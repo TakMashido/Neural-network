@@ -32,7 +32,7 @@ public class Network{
 	private cl_command_queue commandQueue;
 	private cl_program program;
 	private cl_kernel simulateKernel;
-	private cl_kernel sumujKernel;
+	private cl_kernel countOutputsKernel;
 	
 	private cl_mem[] weightsCL;							//[a] a->layer
 	private cl_mem[] outputCL;							//[a]
@@ -83,8 +83,8 @@ public class Network{
 		program=CL.clCreateProgramWithSource(context, 2, new String[] {openCLprogram,function.getOpenCLProgram()}, null, null);
 		CL.clBuildProgram(program, 1, new cl_device_id[] {devices[0]}, null, null, null);
 		
-		simulateKernel=CL.clCreateKernel(program, "sumOutput", null);
-		sumujKernel=CL.clCreateKernel(program, "sumujWyjscia", null);
+		simulateKernel=CL.clCreateKernel(program, "simulate", null);
+		countOutputsKernel=CL.clCreateKernel(program, "sumOutput", null);
 		
 		createCLMem();
 		
@@ -98,7 +98,7 @@ public class Network{
 			CL.clReleaseMemObject(outputCL[i]);
 		}
 		
-		CL.clReleaseKernel(sumujKernel);
+		CL.clReleaseKernel(countOutputsKernel);
 		CL.clReleaseKernel(simulateKernel);
 		CL.clReleaseProgram(program);
 		CL.clReleaseCommandQueue(commandQueue);
@@ -134,16 +134,18 @@ public class Network{
 			outputs[i]=new float[weights[i].length];
 		}
 		
-		layersSize=new int[weights.length];
+		layersNumber=weights.length;
+		layersSize=new int[layersNumber+1];
 		layersSize[0]=inputNumber;
 		for(int i=1;i<=weights.length;i++) {
-			layersSize[i]=weights[i].length;
+			layersSize[i]=weights[i-1].length;
 		}
 	}
 	public void clearCPUData() {
-		if(openCLLoaded)
+		if(openCLLoaded) {
 			weights=null;
-		else throw new NeuralException(0);
+			outputs=null;
+		}else throw new NeuralException(0);
 	}
 	
 	public final int getInputNumber() {
@@ -160,7 +162,7 @@ public class Network{
 	}
 	
 	
-	public float[] symulujSieæ(float[] inputData) {		
+	public float[] simulate(float[] inputData) {		
 		if(inputData.length!=inputNumber)
 			throw new Error("Invalid input lenght. you use : "+inputData.length+" network lenght size: "+inputNumber);
 		if(openCLLoaded) {
@@ -185,14 +187,11 @@ public class Network{
 				CL.clSetKernelArg(simulateKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {connections}));
 				CL.clEnqueueNDRangeKernel(commandQueue, simulateKernel, 2, null ,new long[] {neurony,connections}, new long[]{1,1}, 0, null, null);
 				
-				CL.clSetKernelArg(sumujKernel, 0, Sizeof.cl_mem, preWyjœciaCLPtr);
-				CL.clSetKernelArg(sumujKernel, 1, Sizeof.cl_mem, Pointer.to(outputCL[nrLayer]));
-				CL.clSetKernelArg(sumujKernel, 2, Sizeof.cl_int, Pointer.to(new int[] {connections}));
-				CL.clEnqueueNDRangeKernel(commandQueue, sumujKernel, 1, null, new long[] {neurony}, new long[] {1}, 0, null, null);
+				CL.clSetKernelArg(countOutputsKernel, 0, Sizeof.cl_mem, preWyjœciaCLPtr);
+				CL.clSetKernelArg(countOutputsKernel, 1, Sizeof.cl_mem, Pointer.to(outputCL[nrLayer]));
+				CL.clSetKernelArg(countOutputsKernel, 2, Sizeof.cl_int, Pointer.to(new int[] {connections}));
+				CL.clEnqueueNDRangeKernel(commandQueue, countOutputsKernel, 1, null, new long[] {neurony}, new long[] {1}, 0, null, null);
 				
-				CL.clEnqueueReadBuffer(commandQueue, outputCL[nrLayer], CL.CL_TRUE, 0, Sizeof.cl_float*neurony, Pointer.to(outputs[nrLayer]), 0, null, null);
-				
-				CL.clReleaseMemObject(inputDataCL);
 				CL.clReleaseMemObject(preWyjœciaCL);
 				
 				for(int i=0;i<neurony;i++)
@@ -221,10 +220,10 @@ public class Network{
 	}
 	
 	private static final String openCLprogram=
-		  "__kernel void symuluj(__global const float *wagi,__global const float *wejscia,__global float *preWyjscia,const int ilPolaczen) {"
-		+ "		int polaczenie=get_global_id(1);"
-		+ "		int index=get_global_id(0)*ilPolaczen+polaczenie;"
+		  "__kernel void simulate(__global const float *weights,__global const float *input,__global float *preOutput,const int connectionsNumber) {"
+		+ "		int connection=get_global_id(1);"
+		+ "		int index=get_global_id(0)*connectionsNumber+connection;"
 		+ "		"
-		+ "		preWyjscia[index]=wejscia[polaczenie]*wagi[index];"
+		+ "		preOutput[index]=input[connection]*weights[index];"
 		+ "	}\n";
 }

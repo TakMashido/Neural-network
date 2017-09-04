@@ -112,7 +112,7 @@ public class Teacher{
 		for(aktu³alnyCykl=0;aktu³alnyCykl<cycleNumber;aktu³alnyCykl++){
 			for(NrElementu=0;NrElementu<nrElement;NrElementu++){
 				//System.out.println("symulating network");
-				network.NSymulujSieæ(NrElementu);						//zasymulowanie dzia³ania sieci
+				network.LSimulateNetwork(NrElementu);						//zasymulowanie dzia³ania sieci
 				
 				//System.out.println("counting error");
 				network.coutError(NrElementu);
@@ -121,7 +121,7 @@ public class Teacher{
 				network.countWeights(NrElementu,n,m);
 			}
 			if(aktu³alnyCykl%100==0){								//Randomizacja CU
-				network.miksujCU(random);
+				network.mixLS(random);
 			}
 			
 			if(aktu³alnyCykl==zn[indexN]){							//Zmiana wartoœci n i m zgodnie z tablicami

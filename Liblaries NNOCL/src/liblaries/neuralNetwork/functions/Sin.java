@@ -5,20 +5,20 @@ public class Sin extends Function{
 		functionID=-124;
 		
 		functionKernelSource=
-				  "__kernel void sumOutput(__global float *preWyjscia,__global float *wyjscia, int liczbaPolaczen){"
+				  "__kernel void sumOutput(__global float *preOutput,__global float *output, int connectionNumber){"
 				+ "		int neuron=get_global_id(0);"
-				+ "		int index=neuron*liczbaPolaczen;"
+				+ "		int index=neuron*connectionNumber;"
 				+ "		"
-				+ "		wyjscia[neuron]=0;"
-				+ "		for(int i=0;i<liczbaPolaczen;i++){"
-				+ "			wyjscia[neuron]+=preWyjscia[index+i];"
+				+ "		output[neuron]=0;"
+				+ "		for(int i=0;i<connectionNumber;i++){"
+				+ "			output[neuron]+=preOutput[index+i];"
 				+ "		}"
 				+ "		"
-				+ "		if(wyjscia[neuron]>-1.5707963267948966){"
-				+ "			if(wyjscia[neuron]<1.5707963267948966)"
-				+ "				wyjscia[neuron]=sin(wyjscia[neuron]);"
-				+ "			else wyjscia[neuron]=1;"
-				+ "		}else wyjscia[neuron]=-1;"
+				+ "		if(output[neuron]>-1.5707963267948966){"
+				+ "			if(output[neuron]<1.5707963267948966)"
+				+ "				output[neuron]=sin(output[neuron]);"
+				+ "			else output[neuron]=1;"
+				+ "		}else output[neuron]=-1;"
 				+ "}";
 	}
 	public float function(float dana){

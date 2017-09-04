@@ -5,17 +5,17 @@ public class Sigmoidal extends Function{
 		functionID=-125;
 		
 		functionKernelSource=
-				  "__kernel void sumOutput(__global float *preWyjscia,__global float *wyjscia, int liczbaPolaczen){"
+				  "__kernel void sumOutput(__global float *preOutput,__global float *output, int connectionNumber){"
 				+ "		int neuron=get_global_id(0);"
-				+ "		int index=neuron*liczbaPolaczen;"
+				+ "		int index=neuron*connectionNumber;"
 				+ "		"
-				+ "		wyjscia[neuron]=0;"
-				+ "		for(int i=0;i<liczbaPolaczen;i++){"
-				+ "			wyjscia[neuron]+=preWyjscia[index+i];"
+				+ "		output[neuron]=0;"
+				+ "		for(int i=0;i<connectionNumber;i++){"
+				+ "			output[neuron]+=preOutput[index+i];"
 				+ "		}"
 				+ "		"
 				+ "		float pom=0;"
-				+ "		wyjscia[neuron]=1/(1+exp(-2*wyjscia[neuron]));"
+				+ "		output[neuron]=1/(1+exp(-2*output[neuron]));"
 				+ "}";
 	}
 	public float function(float dana){
