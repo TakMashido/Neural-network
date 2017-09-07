@@ -214,12 +214,4 @@ public class Network{
 		}
 		return getOutput();
 	}
-	
-	private static final String openCLprogram=
-		  "__kernel void simulate(__global const float *weights,__global const float *input,__global float *preOutput,const int connectionsNumber) {"
-		+ "		int connection=get_global_id(1);"
-		+ "		int index=get_global_id(0)*connectionsNumber+connection;"
-		+ "		"
-		+ "		preOutput[index]=input[connection]*weights[index];"
-		+ "	}\n";
 }
