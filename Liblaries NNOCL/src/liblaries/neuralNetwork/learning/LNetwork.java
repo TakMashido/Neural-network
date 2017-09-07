@@ -20,13 +20,13 @@ import liblaries.neuralNetwork.errors.NeuralException;
 import liblaries.neuralNetwork.functions.Function;
 
 public class LNetwork{
-	private float[][][] weights;												//warstwa wejœciowa ma ID=0  [a][b][c] a->warstwa, b->neuron, c->po³¹czenie
-	private float[][][] deltaWeights;											//							 [a][b][c]
-	private float[][] error;													//							 [a][b]
-	private float[][] outputs;													//							 [a][b]
-	private int inputsNumber;													//iloœæ informacji wejœciowych do sieci
-	private LearningSeqence[] learningSeqence;
+	private float[][][] weights;												//input layer have  ID=0	[a][b][c] a->layer, b->neuron, c->connection
+	private float[][][] deltaWeights;											//							[a][b][c]
+	private float[][] error;													//							[a][b]
+	private float[][] outputs;													//							[a][b]
+	private int inputsNumber;
 	
+	private LearningSeqence[] learningSeqence;
 	private Function function;
 	
 	int[] layersSize;															//[0] inputNumber, [1] neurons in layer 0, [2] neurons in layer 1, ...
@@ -38,16 +38,14 @@ public class LNetwork{
 	
 	private cl_program program;
 	private cl_kernel simulateKernel;
-	private cl_kernel countOutputsKernel;
 	private cl_kernel outputLayerErrorKernel;
 	private cl_kernel calculateErrorKernel;
-	private cl_kernel countErrorKernel;
 	private cl_kernel calculateWeightsKernel;
 	
-	private cl_mem[] weightsCL;							//[a] a->warstwa
+	private cl_mem[] weightsCL;							//[a] a->layer
 	private cl_mem[] deltaWeightsCL;					//[a]
-	private cl_mem[] outputsCL;							//[a]					this is not full usage yet. can be useful when I'll add symulating functions on GPU
-	private cl_mem[] errorCL;
+	private cl_mem[] outputsCL;							//[a]
+	private cl_mem[] errorCL;							//[a]
 	
 	private boolean learning=false;
 	
@@ -132,10 +130,8 @@ public class LNetwork{
 		CL.clBuildProgram(program, 1, new cl_device_id[] {devices[deviceIndex]}, null, null, null);
 		
 		simulateKernel=CL.clCreateKernel(program, "simulate", null);
-		countOutputsKernel=CL.clCreateKernel(program, "sumOutput", null);
 		outputLayerErrorKernel=CL.clCreateKernel(program, "outputError", null);
 		calculateErrorKernel=CL.clCreateKernel(program, "calculateError", null);
-		countErrorKernel=CL.clCreateKernel(program, "countError", null);
 		calculateWeightsKernel=CL.clCreateKernel(program, "calculateWeights", null);
 		
 		prepareCLMem();
@@ -228,10 +224,8 @@ public class LNetwork{
 		}
 		
 		CL.clReleaseKernel(simulateKernel);
-		CL.clReleaseKernel(countOutputsKernel);
 		CL.clReleaseKernel(outputLayerErrorKernel);
 		CL.clReleaseKernel(calculateErrorKernel);
-		CL.clReleaseKernel(countErrorKernel);
 		CL.clReleaseKernel(calculateWeightsKernel);
 		CL.clReleaseProgram(program);
 		
@@ -279,7 +273,7 @@ public class LNetwork{
 	public final int getInputNumber() {
 		return inputsNumber;
 	}
-	public final int getCULenght() {
+	public final int getLSLenght() {
 		return learningSeqence.length;
 	}
 	public final LearningSeqence[] getCU() {
@@ -316,17 +310,16 @@ public class LNetwork{
 		if(openCLLoaded) {
 			for(int nrLayer=0;nrLayer<layersNumber;nrLayer++){
 				cl_mem inputDataCL;
-				if(nrLayer==0){														//Warstwa wejœciowa
+				if(nrLayer==0){															//Input layer
 					inputDataCL=learningSeqence[nrElement].outputsCL;
-				}
-				else{																	//Warstwa wyjœciowa
+				}else{																	//Input layer
 					inputDataCL=outputsCL[nrLayer-1];
 				}
 				
 				int neurons=layersSize[nrLayer+1];
 				int connections=layersSize[nrLayer];
 				
-				cl_mem preOutputCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_HOST_NO_ACCESS, Sizeof.cl_float*neurons*connections, null, null);
+				/*cl_mem preOutputCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_HOST_NO_ACCESS, Sizeof.cl_float*neurons*connections, null, null);
 				
 				CL.clSetKernelArg(simulateKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrLayer]));
 				CL.clSetKernelArg(simulateKernel, 1, Sizeof.cl_mem, Pointer.to(inputDataCL));
@@ -339,7 +332,15 @@ public class LNetwork{
 				CL.clSetKernelArg(countOutputsKernel, 2, Sizeof.cl_int, Pointer.to(new int[] {connections}));
 				CL.clEnqueueNDRangeKernel(commandQueue, countOutputsKernel, 1, null, new long[] {neurons}, new long[] {1}, 0, null, null);
 				
-				CL.clReleaseMemObject(preOutputCL);
+				CL.clReleaseMemObject(preOutputCL);*/
+				
+				CL.clSetKernelArg(simulateKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrLayer]));
+				CL.clSetKernelArg(simulateKernel, 1, Sizeof.cl_mem, Pointer.to(inputDataCL));
+				CL.clSetKernelArg(simulateKernel, 2, Sizeof.cl_mem, Pointer.to(outputsCL[nrLayer]));
+				CL.clSetKernelArg(simulateKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {connections}));
+				CL.clEnqueueNDRangeKernel(commandQueue, simulateKernel, 1, null ,new long[] {neurons}, new long[]{1,1}, 0, null, null);
+				
+				//CL.clEnqueueReadBuffer(commandQueue, outputsCL[nrLayer], CL.CL_TRUE, 0, Sizeof.cl_float*outputs[nrLayer].length, Pointer.to(outputs[nrLayer]), 0, null, null);
 				}
 		}else {
 			for(int nrLayer=0;nrLayer<layersNumber;nrLayer++){
@@ -374,21 +375,14 @@ public class LNetwork{
 					CL.clEnqueueNDRangeKernel(commandQueue, outputLayerErrorKernel, 1, null, new long[] {layersSize[layersNumber]}, new long[] {1,1}, 0, null, null);
 					pom=false;
 				}else{																					//warstwy ukryte
-					int neurony=layersSize[nrLayer+1];
-					int po³¹czenia=layersSize[nrLayer+1];
-					
-					cl_mem preB³¹dCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_HOST_NO_ACCESS, Sizeof.cl_float*neurony*po³¹czenia, null, null);
+					int neurons=layersSize[nrLayer+1];
+					int connections=layersSize[nrLayer+1];
 					
 					CL.clSetKernelArg(calculateErrorKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrLayer+1]));
 					CL.clSetKernelArg(calculateErrorKernel, 1, Sizeof.cl_mem, Pointer.to(errorCL[nrLayer+1]));
-					CL.clSetKernelArg(calculateErrorKernel, 2, Sizeof.cl_mem, Pointer.to(preB³¹dCL));
-					CL.clSetKernelArg(calculateErrorKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {po³¹czenia}));
-					CL.clEnqueueNDRangeKernel(commandQueue, calculateErrorKernel, 2, null, new long[] {neurony,po³¹czenia}, new long[] {1,1}, 0, null, null);
-					
-					CL.clSetKernelArg(countErrorKernel, 0, Sizeof.cl_mem, Pointer.to(preB³¹dCL));
-					CL.clSetKernelArg(countErrorKernel, 1, Sizeof.cl_mem, Pointer.to(errorCL[nrLayer]));
-					CL.clSetKernelArg(countErrorKernel, 2, Sizeof.cl_int, Pointer.to(new int[] {neurony}));
-					CL.clEnqueueNDRangeKernel(commandQueue, countErrorKernel, 1, null, new long[] {neurony}, new long[] {1}, 0, null, null);
+					CL.clSetKernelArg(calculateErrorKernel, 2, Sizeof.cl_mem, Pointer.to(errorCL[nrLayer]));
+					CL.clSetKernelArg(calculateErrorKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {connections}));
+					CL.clEnqueueNDRangeKernel(commandQueue, calculateErrorKernel, 1, null, new long[] {neurons}, new long[] {1,1}, 0, null, null);
 				}
 			}
 		}else {
@@ -418,7 +412,7 @@ public class LNetwork{
 		}
 	}
 	public void countWeights(int NrElementu,float n,float m){
-		if(openCLLoaded) {																																	//TODO NNOCL daleta debug messages
+		if(openCLLoaded) {																																	//TODO NNOCL delete debug messages
 			float[][] warstwa =new float[2][];
 			warstwa[0]=new float[weights[0].length*inputsNumber];
 			warstwa[1]=new float[weights[0].length*weights[1].length];
@@ -524,33 +518,19 @@ public class LNetwork{
 	}
 	
 	private static final String openCLprogram=
-			  "__kernel void simulate(__global const float *weights,__global const float *input,__global float *preOutput,const int connectionsNr) {"
-			+ "		int connection=get_global_id(1);"
-			+ "		int index=get_global_id(0)*connectionsNr+connection;"
-			+ "		"
-			+ "		preOutput[index]=input[connection]*weights[index];"
-			+ "	}\n"
-			+ ""
-			+ "__kernel void outputError(__global float *error, __global float *outputs,__global float *goodOutputs){"
+			  "__kernel void outputError(__global float *error, __global float *outputs,__global float *goodOutputs){"
 			+ "		int neuron=get_global_id(0);"
 			+ "		error[neuron]=goodOutputs[neuron]-outputs[neuron];"
 			+ "}\n"
-			+ "__kernel void calculateError(__global float *weights,__global float *errorUp,__global float *preError,const int connectionsNumber){"
-			+ "		int connection=get_global_id(1);"
-			+ "		int index=connection*connectionsNumber+get_global_id(0);"
-			+ "		"
-			+ "		preError[index]=errorUp[connection]*weights[index];"
-			+ "}\n"
-			+  "__kernel void countError(__global float *preError,__global float *error, int connectionsNumber){"
+			+ ""
+			+ "__kernel void calculateError(__global const float *weights, __global const float *errorUp, __global float *error, int connectionsNumber){"
 			+ "		int neuron=get_global_id(0);"
 			+ "		"
-			+ "		int index=neuron;"
 			+ "		error[neuron]=0;"
 			+ "		for(int i=0;i<connectionsNumber;i++){"
-			+ "			error[neuron]+=preError[index];"
-			+ "			index+=connectionsNumber;"
+			+ "			error[neuron]+=errorUp[i]*weights[neuron+i*connectionsNumber];"
 			+ "		}"
-			+ "}\n"
+			+ "}"
 			+ ""
 			+ "__kernel void calculateWeights(__global float *weights,__global float *deltaWeights,__global float *error,__global float *input,int connectionsNumber, float n, float m){"
 			+ "		int neuron=get_global_id(0);"

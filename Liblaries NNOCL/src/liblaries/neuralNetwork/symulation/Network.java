@@ -1,5 +1,7 @@
 package liblaries.neuralNetwork.symulation;
 
+import java.util.Arrays;
+
 import org.jocl.CL;
 import org.jocl.Pointer;
 import org.jocl.Sizeof;
@@ -32,21 +34,20 @@ public class Network{
 	private cl_command_queue commandQueue;
 	private cl_program program;
 	private cl_kernel simulateKernel;
-	private cl_kernel countOutputsKernel;
 	
 	private cl_mem[] weightsCL;							//[a] a->layer
-	private cl_mem[] outputCL;							//[a]
+	private cl_mem[] outputsCL;							//[a]
 	
 	//public Network() {}			//to be or not to be?
 	public Network(int inputNumber, float[][][] weights, Function function) {
 		setWeights(inputNumber,weights);
 		this.function=function;
 	}
-	public Network(int inputNumber, float[][][] weights, Function function, boolean loadOpenCL) {
+	public Network(int inputNumber, float[][][] weights, Function function, boolean initializeOpenCL) {
 		setWeights(inputNumber,weights);
 		this.function=function;
 		
-		if(loadOpenCL)
+		if(initializeOpenCL)
 			initializeOpenCL();
 	}
 	public void setWeights(int inputNumber,float[][][] weights) {
@@ -79,13 +80,12 @@ public class Network{
 		
 		cl_queue_properties queueProperties=new cl_queue_properties();
 		commandQueue=CL.clCreateCommandQueueWithProperties(context, devices[0], queueProperties, null);
-		
-		program=CL.clCreateProgramWithSource(context, 2, new String[] {openCLprogram,function.getOpenCLProgram()}, null, null);
+				
+		program=CL.clCreateProgramWithSource(context, 1, new String[] {function.getOpenCLProgram()}, null, null);
 		CL.clBuildProgram(program, 1, new cl_device_id[] {devices[0]}, null, null, null);
 		
 		simulateKernel=CL.clCreateKernel(program, "simulate", null);
-		countOutputsKernel=CL.clCreateKernel(program, "sumOutput", null);
-		
+				
 		createCLMem();
 		
 		openCLLoaded=true;
@@ -95,10 +95,10 @@ public class Network{
 		
 		for(int i=0;i<weights.length;i++) {
 			CL.clReleaseMemObject(weightsCL[i]);
-			CL.clReleaseMemObject(outputCL[i]);
+			CL.clReleaseMemObject(outputsCL[i]);
 		}
 		
-		CL.clReleaseKernel(countOutputsKernel);
+		//CL.clReleaseKernel(countOutputsKernel);
 		CL.clReleaseKernel(simulateKernel);
 		CL.clReleaseProgram(program);
 		CL.clReleaseCommandQueue(commandQueue);
@@ -106,7 +106,7 @@ public class Network{
 	}
 	private void createCLMem() {
 		weightsCL=new cl_mem[weights.length];
-		outputCL=new cl_mem[weights.length];
+		outputsCL=new cl_mem[weights.length];
 		
 		float[] wagiCLSrc;
 		
@@ -124,7 +124,7 @@ public class Network{
 			}
 			weightsCL[i]=CL.clCreateBuffer(context, CL.CL_MEM_READ_ONLY|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float*(index+1), Pointer.to(wagiCLSrc), null);
 			
-			outputCL[i]=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE, Sizeof.cl_float*outputs[i].length, null, null);
+			outputsCL[i]=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE, Sizeof.cl_float*outputs[i].length, null, null);
 		}
 	}
 	private void prepareData() {
@@ -157,49 +157,45 @@ public class Network{
 	public final float[][] getOutputs() {
 		return outputs;
 	}
+	public final float[] getOutput() {
+		if(openCLLoaded) {
+			if(outputs==null) {
+				float[] outputs=new float[layersSize[layersNumber]];
+				CL.clEnqueueReadBuffer(commandQueue, outputsCL[layersNumber-1], CL.CL_TRUE, 0, Sizeof.cl_float*layersSize[layersNumber], Pointer.to(outputs), 0, null, null);
+				return outputs;
+			}
+			CL.clEnqueueReadBuffer(commandQueue, outputsCL[layersNumber-1], CL.CL_TRUE, 0, Sizeof.cl_float*layersSize[layersNumber], Pointer.to(outputs[layersNumber-1]), 0, null, null);
+		}
+		return outputs[layersNumber-1];
+	}
 	public final boolean isOpenCLLoaded() {
 		return openCLLoaded;
 	}
 	
 	
-	public float[] simulate(float[] inputData) {		
+	public float[] simulate(float[] inputData) {
 		if(inputData.length!=inputNumber)
 			throw new Error("Invalid input lenght. you use : "+inputData.length+" network lenght size: "+inputNumber);
+		System.out.println("layersSize="+Arrays.toString(layersSize)+"\n");
 		if(openCLLoaded) {
 			cl_mem inputDataCL;
 			for(int nrLayer=0;nrLayer<layersNumber;nrLayer++){
 				if(nrLayer==0){																//Input layer
 					inputDataCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_ONLY|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float*inputData.length, Pointer.to(inputData), null);
-				}	
-				else{
-					inputDataCL=outputCL[nrLayer-1];
-					inputData=outputs[nrLayer-1];
+				}else{
+					inputDataCL=outputsCL[nrLayer-1];
 				}
-				int neurony=layersSize[nrLayer+1];
+				int neurons=layersSize[nrLayer+1];
 				int connections=layersSize[nrLayer];
-				
-				cl_mem preWyjœciaCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_HOST_NO_ACCESS, Sizeof.cl_float*neurony*connections, null, null);
-				Pointer preWyjœciaCLPtr=Pointer.to(preWyjœciaCL);
 				
 				CL.clSetKernelArg(simulateKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrLayer]));
 				CL.clSetKernelArg(simulateKernel, 1, Sizeof.cl_mem, Pointer.to(inputDataCL));
-				CL.clSetKernelArg(simulateKernel, 2, Sizeof.cl_mem, preWyjœciaCLPtr);
+				CL.clSetKernelArg(simulateKernel, 2, Sizeof.cl_mem, Pointer.to(outputsCL[nrLayer]));
 				CL.clSetKernelArg(simulateKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {connections}));
-				CL.clEnqueueNDRangeKernel(commandQueue, simulateKernel, 2, null ,new long[] {neurony,connections}, new long[]{1,1}, 0, null, null);
+				CL.clEnqueueNDRangeKernel(commandQueue, simulateKernel, 1, null ,new long[] {neurons}, new long[]{1,1}, 0, null, null);
 				
-				CL.clSetKernelArg(countOutputsKernel, 0, Sizeof.cl_mem, preWyjœciaCLPtr);
-				CL.clSetKernelArg(countOutputsKernel, 1, Sizeof.cl_mem, Pointer.to(outputCL[nrLayer]));
-				CL.clSetKernelArg(countOutputsKernel, 2, Sizeof.cl_int, Pointer.to(new int[] {connections}));
-				CL.clEnqueueNDRangeKernel(commandQueue, countOutputsKernel, 1, null, new long[] {neurony}, new long[] {1}, 0, null, null);
-				
-				CL.clReleaseMemObject(preWyjœciaCL);
-				
-				for(int i=0;i<neurony;i++)
-					outputs[nrLayer][i]=function.function(outputs[nrLayer][i]);
-				
-				CL.clReleaseMemObject(outputCL[nrLayer]);
-				outputCL[nrLayer]=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float*outputs[nrLayer].length, Pointer.to(outputs[nrLayer]), null);
-				}
+				//CL.clEnqueueReadBuffer(commandQueue, outputsCL[nrLayer], CL.CL_TRUE, 0, Sizeof.cl_float*outputs[nrLayer].length, Pointer.to(outputs[nrLayer]), 0, null, null);
+			}
 		}else {
 			for(int nrLayer=0;nrLayer<weights.length;nrLayer++){
 				if(nrLayer!=0){
@@ -216,7 +212,7 @@ public class Network{
 				}
 			}
 		}
-		return outputs[layersNumber-1];
+		return getOutput();
 	}
 	
 	private static final String openCLprogram=

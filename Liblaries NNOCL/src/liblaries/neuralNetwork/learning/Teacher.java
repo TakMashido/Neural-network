@@ -104,7 +104,7 @@ public class Teacher{
 		aktu³alnyCykl=-1;
 		checkTS();
 		
-		int nrElement=network.getCULenght();
+		int nrElement=network.getLSLenght();
 		
 		int indexN=0;												//index nastêpnego n, m w tablicy
 		int indexM=0;

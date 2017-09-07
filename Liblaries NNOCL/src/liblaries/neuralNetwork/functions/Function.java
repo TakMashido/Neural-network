@@ -11,7 +11,7 @@ public abstract class Function{
 		return functionKernelSource;
 	}
 
-	public byte getFunctionID() {
+	public final byte getFunctionID() {
 		return functionID;
 	}
 }
