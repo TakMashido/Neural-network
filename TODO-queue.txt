@@ -1,2 +1,2 @@
 add bias
-make wiki
+improve make wiki
