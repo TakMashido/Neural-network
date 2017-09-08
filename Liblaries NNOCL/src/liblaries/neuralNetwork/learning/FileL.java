@@ -10,7 +10,7 @@ import java.io.IOException;
 import liblaries.neuralNetwork.errors.FileVersionException;
 import liblaries.neuralNetwork.functions.FunctionList;
 
-public class FileN {
+public class FileL {
 	public static void saveLS(String fileName,LearningSeqence[] data) throws IOException{
 		DataOutputStream out=new DataOutputStream(new FileOutputStream(fileName+".LS"));
 		
