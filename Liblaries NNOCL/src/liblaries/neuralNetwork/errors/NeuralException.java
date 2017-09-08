@@ -7,7 +7,7 @@ public class NeuralException extends RuntimeException{
 	public static final int invalidClear=0; 				//Throwed when you try to clear network data not necessery for GPU calculation without inintiate openCL
 	public static final int learningMemChange=1;			//Throwed when you try to change eg. weights of network during learning. First stop learning
 	public static final int invalidLS=2;					//Throwed when inputs/outputs number of learning sequence is diffrend than network inputs/outputs number
-	public static final int learningInProgress=3;			//Throwed when you try start second learning when first is not finished
+	public static final int learningInProgress=3;			//Throwed when you try start second learning when first is not finished, or set network durnig learning
 	
 	int errorID;
 	

@@ -7,7 +7,7 @@ import liblaries.neuralNetwork.errors.FileVersionException;
 import liblaries.neuralNetwork.errors.NeuralException;
 
 public class Teacher{
-	public LNetwork network=new LNetwork();
+	private LNetwork network;
 	public float n;
 	public float m;
 	public long cycleNumber;
@@ -21,7 +21,7 @@ public class Teacher{
 	
 	private int NrElementu;													//numer aktu³alnie rozwarzanego elementu z ci¹gu ucz¹cego
 	
-	private long aktu³alnyCykl=-2;											//-1: sprawdzanieCU, -2: uczenie zakoñczone, inne: aktu³alny cykl uczenia
+	private long aktu³alnyCykl=-2;											//-1: checking LS, -2: learning end, other: actual cycle of learn
 	
 	public Teacher(){
 		n=0.2f;
@@ -34,21 +34,21 @@ public class Teacher{
 		zn=new long[]{10000};
 		zm=new long[]{10000};
 	}
-	public Teacher(float N,float M,long LiczbaCykli){
+	public Teacher(float N,float M,long cyclesNumber){
 		n=N;
 		m=M;
-		cycleNumber=LiczbaCykli;
+		cycleNumber=cyclesNumber;
 		
 		dn=new float[]{n};
 		dm=new float[]{m};
 		
-		zn=new long[]{LiczbaCykli};
-		zm=new long[]{LiczbaCykli};
+		zn=new long[]{cyclesNumber};
+		zm=new long[]{cyclesNumber};
 	}
-	public Teacher(float[] N,float[] M,long LiczbaCykli){
+	public Teacher(float[] N,float[] M,long cyclesNumber){
 		dn=N;
 		dm=M;
-		cycleNumber=LiczbaCykli;
+		cycleNumber=cyclesNumber;
 		
 		n=dn[0];
 		m=dm[0];
@@ -56,21 +56,21 @@ public class Teacher{
 		zn=new long[dn.length];
 		zm=new long[dm.length];
 		
-		long pozosta³o=cycleNumber;						//okreœla ile cyk. ucz.pozosta³o do podzia³u
+		long remaining=cycleNumber;						//okreœla ile cyk. ucz.pozosta³o do podzia³u
 		long delta;
 		for(int i=dn.length-1;i>0;i--){
-			delta=pozosta³o/i;
+			delta=remaining/i;
 			
-			zn[i]=pozosta³o;
-			pozosta³o-=delta;
+			zn[i]=remaining;
+			remaining-=delta;
 		}
 		
-		pozosta³o=0;
+		remaining=0;
 		for(int i=dm.length-1;i>0;i--){
-			delta=pozosta³o/i;
+			delta=remaining/i;
 			
-			zm[i]=pozosta³o;
-			pozosta³o-=delta;
+			zm[i]=remaining;
+			remaining-=delta;
 		}
 	}
 	public Teacher(float[] N,long[] zmianaN,float[] M,long[] zmianaM,long LiczbaCykli){
@@ -96,6 +96,13 @@ public class Teacher{
 		
 		zn=new long[]{LiczbaCykli};
 		zm=new long[]{LiczbaCykli};
+	}
+	
+	public void setNetwork(LNetwork network) {
+		if(aktu³alnyCykl==-2) {
+			this.network=network;
+		}else
+			throw new NeuralException(3);
 	}
 	
 	public LNetwork teach() throws NeuralException{

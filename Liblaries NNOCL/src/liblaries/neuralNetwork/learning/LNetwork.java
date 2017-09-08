@@ -50,13 +50,13 @@ public class LNetwork{
 	private boolean learning=false;
 	
 	public LNetwork(){}
-	public LNetwork(int inputsNumber,int[] layersSize,Function function) {
+	public LNetwork(int inputsNumber,int[] layersSize, Function function) {
 		createLNetwork(inputsNumber, layersSize, function);
 		prepareData();
 	}
-	public LNetwork(int inputsNumber,int[] layersSize,Function function,boolean openCLUse) {
+	public LNetwork(int inputsNumber,int[] layersSize, Function function, boolean initializeOpenCL) {
 		createLNetwork(inputsNumber, layersSize, function);
-		if(openCLUse) {
+		if(initializeOpenCL) {
 			initializeOpenCL();
 		}
 		else
@@ -236,6 +236,8 @@ public class LNetwork{
 	public final void setWeights(float[][][] weights) {
 		if(!learning) {
 			this.weights=weights;
+			inputsNumber=weights[0][0].length;
+			
 			prepareData();
 			
 			if(openCLLoaded) {
@@ -243,12 +245,6 @@ public class LNetwork{
 				prepareCLMem();
 			}
 		}else
-			throw new NeuralException(1);
-	}
-	public final void setInputNumber(int inputNumber) {
-		if(!learning)
-			this.inputsNumber=inputNumber;
-		else
 			throw new NeuralException(1);
 	}
 	public final void setLS(LearningSeqence[] ls) {
