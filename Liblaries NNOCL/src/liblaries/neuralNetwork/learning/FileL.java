@@ -72,7 +72,6 @@ public class FileL {
 			
 			byte layersNumber=in.readByte();
 			int inputNumber=in.readInt();
-			network.setInputNumber(inputNumber);
 			
 			int[] layersSize=new int[layersNumber];	
 			
