@@ -296,6 +296,9 @@ public class LNetwork{
 	public final boolean isOpenCLLoaded() {
 		return openCLLoaded;
 	}
+	public final boolean isLearnning() {
+		return learning;
+	}
 	
 	public void startLearning() {
 		if(!learning) {

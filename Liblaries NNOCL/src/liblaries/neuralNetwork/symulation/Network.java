@@ -19,7 +19,7 @@ import liblaries.neuralNetwork.errors.NeuralException;
 import liblaries.neuralNetwork.functions.Function;
 
 public class Network{
-	private float[][][] weights;				//Input layer ID=0			[a][b][c] a->layer, b->neuron, c->connection
+	private float[][][] weights;				//Input layer ID=0			[a][b][c] a->layer, b->neuron, c->connection		//First connection in each neuron is bias
 	private float[][] outputs;
 	
 	private int inputNumber;

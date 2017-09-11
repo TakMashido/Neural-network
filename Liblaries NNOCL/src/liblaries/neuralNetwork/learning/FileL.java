@@ -8,6 +8,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 
 import liblaries.neuralNetwork.errors.FileVersionException;
+import liblaries.neuralNetwork.errors.NeuralException;
+import liblaries.neuralNetwork.functions.Function;
 import liblaries.neuralNetwork.functions.FunctionList;
 
 public class FileL {
@@ -65,64 +67,123 @@ public class FileL {
 		
 		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".NN"));
 		
+		Function function;
+		int layersNumber;
+		int inputNumber;
+		int[] layersSize;
+		float[][][] weights;
+		
 		byte version=in.readByte();											//file version
 		switch(version){
 		case -128:
-			network.setFunction(FunctionList.getFunction(in.readByte()));
+			function=FunctionList.getFunction(in.readByte());
 			
-			byte layersNumber=in.readByte();
-			int inputNumber=in.readInt();
+			layersNumber=in.readByte();
+			inputNumber=in.readInt();
 			
-			int[] layersSize=new int[layersNumber];	
+			layersSize=new int[layersNumber];
 			
-			for(byte i=0;i<layersNumber;i++){
+			weights=new float[layersNumber][][];
+			for(byte i=0;i<layersNumber;i++){								//Size of each layer
 				layersSize[i]=in.readInt();
+				weights[i]=new float[layersSize[i]][];
 			}
 			
-			float[][][] weights=new float[layersNumber][][];
-			
-			for(int i=0;i<layersNumber;i++) {
-				weights[i]=new float[layersSize[i]][i==0?inputNumber:layersSize[i-1]];
-				for(int j=0;j<weights[i].length;i++) {
-					for(int k=0;k<weights[i][0].length;k++){
-						weights[i][j][k]=(float)in.readDouble();
-					}
+			for(int j=0;j<layersSize[0];j++){
+				weights[0][j]=new float[inputNumber];
+				weights[0][j][0]=0f;
+				for(int k=0;k<inputNumber;k++){
+					weights[0][j][k+1]=(float) in.readDouble();
 				}
 			}
 			
+			if(layersNumber>1){
+				for(byte i=1;i<layersNumber;i++){
+					weights[i]=new float[layersSize[i]][];
+					
+					for(int j=0;j<layersSize[i];j++){
+						weights[i][j]=new float[layersSize[i-1]+1];
+						
+						weights[i][j][0]=0f;
+						for(int k=0;k<layersSize[i-1];k++){
+							weights[i][j][k+1]=(float) in.readDouble();
+						}
+					}
+				}
+			}
 			network.setWeights(weights);
-			
+			network.setFunction(function);
 			break;
-			default:in.close();throw new FileVersionException("Don't support file verion newer then -128. This file version: "+version);
+		case -127:
+			function=FunctionList.getFunction(in.readByte());
+			
+			layersNumber=in.readInt();
+			inputNumber=in.readInt();
+			
+			layersSize=new int[layersNumber];
+			
+			weights=new float[layersNumber][][];
+			for(byte i=0;i<layersNumber;i++){								//Size of each layer
+				layersSize[i]=in.readInt();
+				weights[i]=new float[layersSize[i]][];
+			}
+			
+			for(int j=0;j<layersSize[0];j++){
+				weights[0][j]=new float[inputNumber];
+				for(int k=0;k<inputNumber+1;k++){
+					weights[0][j][k]=in.readFloat();
+				}
+			}
+			
+			if(layersNumber>1){
+				for(byte i=1;i<layersNumber;i++){
+					weights[i]=new float[layersSize[i]][];
+					
+					for(int j=0;j<layersSize[i];j++){
+						weights[i][j]=new float[layersSize[i-1]+1];
+						
+						for(int k=0;k<weights[i][j].length;k++){
+							weights[i][j][k]=in.readFloat();
+						}
+					}
+				}
+			}
+			network.setWeights(weights);
+			network.setFunction(function);
+			break;
+		default:in.close();throw new FileVersionException("Don't support file verion newer then -127. This file version: "+version);
 		}
 		in.close();
 			
 		return network;
 	}
-	public static void saveLNetwork(String fileName,LNetwork sieæ) throws IOException{
-		File file=new File(fileName+".NN");
-		file.createNewFile();
-		DataOutputStream save=new DataOutputStream(new FileOutputStream(file));
-		
-		save.writeByte(-128);											//version of .NN
-		
-		save.writeByte(sieæ.getFunction().getFunctionID());
-		
-		float[][][] weights=sieæ.getWeights();
-		save.writeByte(weights.length);
-		
-		save.writeInt(sieæ.getInputNumber());
-		
-		for(int i=0;i<weights.length;i++){
-			save.writeInt(weights[i].length);
-		}
-		for(int i=0;i<weights.length;i++){
-			for(int j=0;j<weights[i].length;j++){
-				for(int k=0;k<weights[i][j].length;k++){
-					save.writeDouble(weights[i][j][k]);
+	public static void saveLNetwork(String fileName,LNetwork network) throws IOException{
+		if(!network.isLearnning()) {
+			File file=new File(fileName+".NN");
+			file.createNewFile();
+			DataOutputStream save=new DataOutputStream(new FileOutputStream(file));
+			
+			save.writeByte(-127);											//version of .NN
+			
+			save.writeByte(network.getFunction().getFunctionID());
+			
+			float[][][] weights=network.getWeights();
+			save.writeInt(weights.length);
+			
+			save.writeInt(network.getInputNumber());
+			
+			for(int i=0;i<weights.length;i++){
+				save.writeInt(weights[i].length);
+			}
+			for(int i=0;i<weights.length;i++){
+				for(int j=0;j<weights[i].length;j++){
+					for(int k=0;k<weights[i][j].length;k++){
+						save.writeFloat(weights[i][j][k]);
+					}
 				}
 			}
+			save.close();
 		}
-		save.close();
+		else throw new NeuralException(3);
 	}
 }

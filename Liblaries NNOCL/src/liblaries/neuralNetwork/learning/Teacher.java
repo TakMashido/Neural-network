@@ -105,6 +105,11 @@ public class Teacher{
 			throw new NeuralException(3);
 	}
 	
+	public LNetwork getNetwork() {
+		return network;
+	}
+	
+	
 	public LNetwork teach() throws NeuralException{
 		network.startLearning();
 		
