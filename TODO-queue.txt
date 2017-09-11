@@ -1,4 +1,5 @@
 add bias
+add dynamic n and m for each layer(baseN/connectionNumber, baseM/connectionNumber)
 add validational set
 add removing low weights and low weights-neurons to optymalize network structure (good start to evolution-backpropagation algoritm)
 improve wiki
