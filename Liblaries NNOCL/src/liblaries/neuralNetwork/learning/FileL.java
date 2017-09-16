@@ -13,6 +13,9 @@ import liblaries.neuralNetwork.functions.Function;
 import liblaries.neuralNetwork.functions.FunctionList;
 
 public class FileL {
+	private static final byte NNSupportedVersion=-127;
+	private static final byte LSSupportedVersion=-128;
+	
 	public static void saveLS(String fileName,LearningSeqence[] data) throws IOException{
 		DataOutputStream out=new DataOutputStream(new FileOutputStream(fileName+".LS"));
 		
@@ -185,5 +188,12 @@ public class FileL {
 			save.close();
 		}
 		else throw new NeuralException(3);
+	}
+	
+	public static byte getNNSupportedVersion() {
+		return NNSupportedVersion;
+	}
+	public static byte getLSSupportedVersion() {
+		return LSSupportedVersion;
 	}
 }

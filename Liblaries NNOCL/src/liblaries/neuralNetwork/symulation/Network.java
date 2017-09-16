@@ -1,7 +1,5 @@
 package liblaries.neuralNetwork.symulation;
 
-import java.util.Arrays;
-
 import org.jocl.CL;
 import org.jocl.Pointer;
 import org.jocl.Sizeof;
@@ -112,7 +110,7 @@ public class Network{
 		
 		int index;
 		for(int i=0;i<weights.length;i++) {
-			int liczbaPo³¹czeñ=i==0?inputNumber:weights[i-1].length;
+			int liczbaPo³¹czeñ=layersSize[i]+1;
 			wagiCLSrc=new float[weights[i].length*liczbaPo³¹czeñ];
 			
 			index=0;
@@ -124,7 +122,7 @@ public class Network{
 			}
 			weightsCL[i]=CL.clCreateBuffer(context, CL.CL_MEM_READ_ONLY|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float*(index+1), Pointer.to(wagiCLSrc), null);
 			
-			outputsCL[i]=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE, Sizeof.cl_float*outputs[i].length, null, null);
+			outputsCL[i]=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float*(outputs[i].length+1), Pointer.to(new float[] {1}), null);
 		}
 	}
 	private void prepareData() {
@@ -155,16 +153,29 @@ public class Network{
 		return weights;
 	}
 	public final float[][] getOutputs() {
+		if(openCLLoaded) {
+			if(outputs==null) {
+				float[][] outputs=new float[layersNumber][];
+				for(int i=0;i<layersNumber;i++) {
+					outputs[i]=new float[layersSize[i+1]];
+					CL.clEnqueueReadBuffer(commandQueue, outputsCL[i], CL.CL_TRUE, Sizeof.cl_float, Sizeof.cl_float*layersSize[i+1], Pointer.to(outputs[i]), 0, null, null);
+				}
+				return outputs;
+			}
+			for(int i=0;i<layersNumber;i++) {
+				CL.clEnqueueReadBuffer(commandQueue, outputsCL[i], CL.CL_TRUE, Sizeof.cl_float, Sizeof.cl_float*layersSize[i+1], Pointer.to(outputs[i]), 0, null, null);
+			}
+		}
 		return outputs;
 	}
 	public final float[] getOutput() {
 		if(openCLLoaded) {
 			if(outputs==null) {
 				float[] outputs=new float[layersSize[layersNumber]];
-				CL.clEnqueueReadBuffer(commandQueue, outputsCL[layersNumber-1], CL.CL_TRUE, 0, Sizeof.cl_float*layersSize[layersNumber], Pointer.to(outputs), 0, null, null);
+				CL.clEnqueueReadBuffer(commandQueue, outputsCL[layersNumber-1], CL.CL_TRUE, Sizeof.cl_float, Sizeof.cl_float*layersSize[layersNumber], Pointer.to(outputs), 0, null, null);
 				return outputs;
 			}
-			CL.clEnqueueReadBuffer(commandQueue, outputsCL[layersNumber-1], CL.CL_TRUE, 0, Sizeof.cl_float*layersSize[layersNumber], Pointer.to(outputs[layersNumber-1]), 0, null, null);
+			CL.clEnqueueReadBuffer(commandQueue, outputsCL[layersNumber-1], CL.CL_TRUE, Sizeof.cl_float, Sizeof.cl_float*layersSize[layersNumber], Pointer.to(outputs[layersNumber-1]), 0, null, null);
 		}
 		return outputs[layersNumber-1];
 	}
@@ -172,21 +183,22 @@ public class Network{
 		return openCLLoaded;
 	}
 	
-	
 	public float[] simulate(float[] inputData) {
 		if(inputData.length!=inputNumber)
-			throw new Error("Invalid input lenght. you use : "+inputData.length+" network lenght size: "+inputNumber);
-		System.out.println("layersSize="+Arrays.toString(layersSize)+"\n");
+			throw new NeuralException(4);
+		
 		if(openCLLoaded) {
 			cl_mem inputDataCL;
 			for(int nrLayer=0;nrLayer<layersNumber;nrLayer++){
 				if(nrLayer==0){																//Input layer
-					inputDataCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_ONLY|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float*inputData.length, Pointer.to(inputData), null);
+					inputDataCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_ONLY|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float*(inputData.length+1), Pointer.to(inputData), null);
+					CL.clEnqueueWriteBuffer(commandQueue, inputDataCL, CL.CL_TRUE, 0, Sizeof.cl_float, Pointer.to(new float[] {1}), 0, null, null);
+					CL.clEnqueueWriteBuffer(commandQueue, inputDataCL, CL.CL_TRUE, Sizeof.cl_float, Sizeof.cl_float*inputNumber, Pointer.to(inputData), 0, null, null);
 				}else{
 					inputDataCL=outputsCL[nrLayer-1];
 				}
 				int neurons=layersSize[nrLayer+1];
-				int connections=layersSize[nrLayer];
+				int connections=layersSize[nrLayer]+1;
 				
 				CL.clSetKernelArg(simulateKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrLayer]));
 				CL.clSetKernelArg(simulateKernel, 1, Sizeof.cl_mem, Pointer.to(inputDataCL));
@@ -201,9 +213,9 @@ public class Network{
 				}
 				
 				for(int i=0;i<weights[nrLayer].length;i++) {
-					outputs[nrLayer][i]=0;
-					for(int j=0;j<weights[nrLayer][i].length;j++){
-						outputs[nrLayer][i]+=weights[nrLayer][i][j]*inputData[j];
+					outputs[nrLayer][i]=weights[nrLayer][i][0];
+					for(int j=1;j<weights[nrLayer][i].length;j++){
+						outputs[nrLayer][i]+=weights[nrLayer][i][j]*inputData[j-1];
 					}
 					
 					outputs[nrLayer][i]=function.function(outputs[nrLayer][i]);

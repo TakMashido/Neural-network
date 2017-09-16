@@ -9,6 +9,8 @@ import liblaries.neuralNetwork.functions.Function;
 import liblaries.neuralNetwork.functions.FunctionList;
 
 public class FileS {
+	private static final byte NNSupportedVersion=-127;
+	
 	public static Network readNetwork(String fileName) throws IOException{
 		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".NN"));
 		
@@ -98,5 +100,9 @@ public class FileS {
 			in.close();
 			throw new FileVersionException("Don't support file verion newer then -127. This file version: "+version);
 		}
+	}
+	
+	public static byte getNNSupportedVersion() {
+		return NNSupportedVersion;
 	}
 }
