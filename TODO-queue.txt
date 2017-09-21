@@ -1,4 +1,5 @@
-add bias
+marge error and weights calculation to one mmethod(optymalization)
+check if making kerel for each layer can speed up(one time set up parameters)
 add dynamic n and m for each layer(baseN/connectionNumber, baseM/connectionNumber)
 add validational set
 add removing low weights and low weights-neurons to optymalize network structure (good start to evolution-backpropagation algoritm)
