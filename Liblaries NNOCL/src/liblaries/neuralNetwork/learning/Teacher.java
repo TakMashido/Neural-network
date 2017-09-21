@@ -124,7 +124,7 @@ public class Teacher{
 		for(actualCycle=0;actualCycle<cycleNumber;actualCycle++){
 			for(elementNr=0;elementNr<nrElement;elementNr++){
 				//System.out.println("symulating network");
-				network.LSimulateNetwork(elementNr);						//zasymulowanie dzia³ania sieci
+				network.lSimulate(elementNr);						//zasymulowanie dzia³ania sieci
 				
 				//System.out.println("counting error");
 				network.coutError(elementNr);

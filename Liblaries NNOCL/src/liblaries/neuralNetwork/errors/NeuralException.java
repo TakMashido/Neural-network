@@ -6,7 +6,7 @@ public class NeuralException extends RuntimeException{
 	//error ID's								//I'll sort this in future
 	public static final int invalidClear=0; 				//Throwed when you try to clear network data not necessery for GPU calculation without inintiate openCL
 	public static final int learningMemChange=1;			//Throwed when you try to change eg. weights of network during learning. First stop learning
-	public static final int invalidLS=2;					//Throwed when inputs/outputs number of learning sequence is diffrend than network inputs/outputs number
+	public static final int invalidOutputSize=2;			//Throwed when outputs number of learning sequence is diffrend than network outputs number
 	public static final int learningInProgress=3;			//Throwed when you try start second learning when first is not finished, or set teacher's network durnig learning, or save network duriong learning
 	public static final int invalidInputSize=4;				//Throwed when size of given input(or in LS) is different then network input number
 	
@@ -20,8 +20,9 @@ public class NeuralException extends RuntimeException{
 		switch(errorID) {
 		case invalidClear:return "First initiate openCL";
 		case learningMemChange:return "Can't change data. Learning in progress";
-		case invalidLS:return "Invalid input/output number in LS";
+		case invalidOutputSize:return "Invalid output number in LS";
 		case learningInProgress:return "Can't start new lerning when previus isn't finished";
+		case invalidInputSize: return "Invalid input number";
 		default :return "Unknow error";
 		}
 	}
