@@ -12,16 +12,16 @@ public class Teacher{
 	public float m;
 	public long cycleNumber;
 	
-	public float[] dn;														//zmienia wartoœæ n i m
+	public float[] dn;														//n and m change values
 	public float[] dm;
 	public long[] zn;
-	public long[] zm;														//przy o ilu cyklach zmienia siê n i m
+	public long[] zm;														//number of cycles of n and m change
 	
 	public Random random=new Random();
 	
-	private int NrElementu;													//numer aktu³alnie rozwarzanego elementu z ci¹gu ucz¹cego
+	private int elementNr;													//number of actual simulate element from LS
 	
-	private long aktu³alnyCykl=-2;											//-1: checking LS, -2: learning end, other: actual cycle of learn
+	private long actualCycle=-2;											//-1: checking LS, -2: learning end, other: actual cycle of learn
 	
 	public Teacher(){
 		n=0.2f;
@@ -99,16 +99,21 @@ public class Teacher{
 	}
 	
 	public void setNetwork(LNetwork network) {
-		if(aktu³alnyCykl==-2) {
+		if(actualCycle==-2) {
 			this.network=network;
 		}else
 			throw new NeuralException(3);
 	}
 	
+	public LNetwork getNetwork() {
+		return network;
+	}
+	
+	
 	public LNetwork teach() throws NeuralException{
 		network.startLearning();
 		
-		aktu³alnyCykl=-1;
+		actualCycle=-1;
 		checkTS();
 		
 		int nrElement=network.getLSLenght();
@@ -116,31 +121,31 @@ public class Teacher{
 		int indexN=0;												//index nastêpnego n, m w tablicy
 		int indexM=0;
 		
-		for(aktu³alnyCykl=0;aktu³alnyCykl<cycleNumber;aktu³alnyCykl++){
-			for(NrElementu=0;NrElementu<nrElement;NrElementu++){
+		for(actualCycle=0;actualCycle<cycleNumber;actualCycle++){
+			for(elementNr=0;elementNr<nrElement;elementNr++){
 				//System.out.println("symulating network");
-				network.LSimulateNetwork(NrElementu);						//zasymulowanie dzia³ania sieci
+				network.lSimulate(elementNr);						//zasymulowanie dzia³ania sieci
 				
 				//System.out.println("counting error");
-				network.coutError(NrElementu);
+				network.coutError(elementNr);
 				
 				//System.out.println("countion weights");
-				network.countWeights(NrElementu,n,m);
+				network.countWeights(elementNr,n,m);
 			}
-			if(aktu³alnyCykl%100==0){								//Randomizacja CU
+			if(actualCycle%100==0){								//Randomizacja CU
 				network.mixLS(random);
 			}
 			
-			if(aktu³alnyCykl==zn[indexN]){							//Zmiana wartoœci n i m zgodnie z tablicami
+			if(actualCycle==zn[indexN]){							//Zmiana wartoœci n i m zgodnie z tablicami
 				indexN++;
 				n=dn[indexN];
 			}
-			if(aktu³alnyCykl==zm[indexM]){
+			if(actualCycle==zm[indexM]){
 				indexM++;
 				m=dn[indexM];
 			}
 			
-			//try{													//XXX SN "och³adzacz" procka
+			//try{													//CPU "cooler"
 			//	Thread.sleep(500);
 			//}catch(InterruptedException e){
 			//	e.printStackTrace();
@@ -148,7 +153,7 @@ public class Teacher{
 		}
 		
 		network.endLearning();
-		aktu³alnyCykl=-2;
+		actualCycle=-2;
 		return network;
 	}
 	private void checkTS() throws NeuralException{					//Sprawdza czy CU odpowiada SN
@@ -157,15 +162,13 @@ public class Teacher{
 		LearningSeqence[] ci¹gUcz¹cy=network.getCU();
 		
 		for(LearningSeqence CU:ci¹gUcz¹cy){
-			if(CU.inputs.length!=inputNumber){
+			if(CU.inputs.length!=inputNumber)
+				throw new NeuralException(4);
+			if(CU.outputs.length!=outputNumber)
 				throw new NeuralException(2);
-			}
-			if(CU.outputs.length!=outputNumber){
-				throw new NeuralException(2);
-			}
 		}
 	}
-	public final long getCykl() {
-		return aktu³alnyCykl;
+	public final long getCycle() {
+		return actualCycle;
 	}
 }

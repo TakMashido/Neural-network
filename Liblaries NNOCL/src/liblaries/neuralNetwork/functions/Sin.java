@@ -8,6 +8,7 @@ public class Sin extends Function{
 				  "__kernel void simulate(__global const float *weights,__global const float *input,__global float *output,int connectionsNumber) {"
 				  + "	int neuron=get_global_id(0);"
 				  + "	int index=neuron*connectionsNumber;"
+				  + "	neuron++;"								//offset of worksize in not supported by openCL yet
 				  + "	"
 				  + "	output[neuron]=0;"
 				  + "	for(int i=0;i<connectionsNumber;i++){"
@@ -29,7 +30,7 @@ public class Sin extends Function{
 		}
 		else return -1;
 	}
-	/*public float pochodna(float dana){			//TODO SNOCL upewniæ siê czy pochodna dobra
+	/*public float pochodna(float dana){			//This can be wrong
 		if(dana>-1){
 			if(dana<1)
 				return (float) Math.cos(dana);
