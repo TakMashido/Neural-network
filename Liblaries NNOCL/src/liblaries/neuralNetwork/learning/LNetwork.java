@@ -289,7 +289,7 @@ public class LNetwork{
 	public final int getInputNumber() {
 		return inputsNumber;
 	}
-	public int getOutputNumber(){
+	public final int getOutputNumber(){
 		return layersSize[layersNumber];
 	}
 	public final int getLSLenght() {
@@ -321,6 +321,27 @@ public class LNetwork{
 	}
 	public final boolean isLearnning() {
 		return learning;
+	}
+	
+	public void mixLS(Random random){
+		int ilEl=learningSeqence.length;
+		LearningSeqence[] newLS=new LearningSeqence[ilEl];
+		boolean[] included=new boolean[ilEl];									//True if LS elemnent is already in newLS
+		
+		int index;
+				
+		for(LearningSeqence cu:learningSeqence){
+			while(true){
+				index=random.nextInt(ilEl);
+				if(!included[index]){
+					newLS[index]=cu;
+					included[index]=true;
+					break;
+				}
+			}
+		}
+		
+		learningSeqence=newLS;
 	}
 	
 	public void startLearning() {
@@ -437,16 +458,16 @@ public class LNetwork{
 			CL.clSetKernelArg(calculateWeightsKernel, 5, Sizeof.cl_float, Pointer.to(new float[] {n}));
 			CL.clSetKernelArg(calculateWeightsKernel, 6, Sizeof.cl_float, Pointer.to(new float[] {m}));
 			for(int i=layersNumber-1;i>-1;i--) {
-				long time=System.nanoTime();
+				//long time=System.nanoTime();
 				CL.clSetKernelArg(calculateWeightsKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[i]));
 				CL.clSetKernelArg(calculateWeightsKernel, 1, Sizeof.cl_mem, Pointer.to(deltaWeightsCL[i]));
 				CL.clSetKernelArg(calculateWeightsKernel, 2, Sizeof.cl_mem, Pointer.to(errorCL[i]));
 				CL.clSetKernelArg(calculateWeightsKernel, 3, Sizeof.cl_mem, Pointer.to(i==0?learningSeqence[i].inputsCL:outputsCL[i-1]));
 				CL.clSetKernelArg(calculateWeightsKernel, 4, Sizeof.cl_int, Pointer.to(new int[] {layersSize[i]+1}));
-				System.out.println("settingup time="+((System.nanoTime()-time)/1000)/1000f+"ms");
-				time=System.nanoTime();
+				//System.out.println("settingup time="+((System.nanoTime()-time)/1000)/1000f+"ms");
+				//time=System.nanoTime();
 				CL.clEnqueueNDRangeKernel(commandQueue, calculateWeightsKernel, 2, null, new long[] {layersSize[i+1],layersSize[i]+1}, new long[] {1,1}, 0, null, null);
-				System.out.println("invoking time="+((System.nanoTime()-time)/1000)/1000f+"ms");
+				//System.out.println("invoking time="+((System.nanoTime()-time)/1000)/1000f+"ms");
 			}
 			//System.out.println("time="+((System.nanoTime()-time)/1000)/1000f+"ms");
 		}else {
@@ -481,10 +502,10 @@ public class LNetwork{
 			
 			for(int i=0;i<layersNumber;i++) {
 				neurons=layersSize[i+1];
-				connections=layersSize[i];
+				connections=layersSize[i]+1;
 				index=0;
 				
-				weightsBuffer=new float[layersSize[i+1]*layersSize[i]];
+				weightsBuffer=new float[neurons*connections];
 				CL.clEnqueueReadBuffer(commandQueue, weightsCL[i], CL.CL_TRUE, 0, Sizeof.cl_float*weightsBuffer.length, Pointer.to(weightsBuffer), 0, null, null);
 				
 				for(int j=0;j<neurons;j++) {
@@ -495,26 +516,6 @@ public class LNetwork{
 			}
 		}
 		learning=false;
-	}
-	public void mixLS(Random random){
-		int ilEl=learningSeqence.length;
-		LearningSeqence[] newLS=new LearningSeqence[ilEl];
-		boolean[] included=new boolean[ilEl];									//True if LS elemnent is already in newLS
-		
-		int index;
-				
-		for(LearningSeqence cu:learningSeqence){
-			while(true){
-				index=random.nextInt(ilEl);
-				if(!included[index]){
-					newLS[index]=cu;
-					included[index]=true;
-					break;
-				}
-			}
-		}
-		
-		learningSeqence=newLS;
 	}
 	
 	private static final String openCLprogram=

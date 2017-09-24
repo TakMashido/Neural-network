@@ -3,7 +3,6 @@ package liblaries.neuralNetwork.learning;
 import java.io.IOException;
 import java.util.Random;
 
-import liblaries.neuralNetwork.errors.FileVersionException;
 import liblaries.neuralNetwork.errors.NeuralException;
 
 public class Teacher{
@@ -82,7 +81,7 @@ public class Teacher{
 		
 		cycleNumber=LiczbaCykli;
 	}
-	public Teacher(String NazwaSN,String NazwaCU,long LiczbaCykli,float N,float M) throws FileVersionException, IOException, NeuralException{
+	public Teacher(String NazwaSN,String NazwaCU,long LiczbaCykli,float N,float M) throws IOException, NeuralException{
 		network=FileL.readLNetwork(NazwaSN);
 		network.setLS(FileL.readLS(NazwaCU));
 		checkTS();

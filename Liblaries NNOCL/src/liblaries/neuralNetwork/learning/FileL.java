@@ -7,7 +7,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-import liblaries.neuralNetwork.errors.FileVersionException;
 import liblaries.neuralNetwork.errors.NeuralException;
 import liblaries.neuralNetwork.functions.Function;
 import liblaries.neuralNetwork.functions.FunctionList;
@@ -36,7 +35,7 @@ public class FileL {
 		
 		out.close();
 	}
-	public static LearningSeqence[] readLS(String fileName) throws FileVersionException,IOException{
+	public static LearningSeqence[] readLS(String fileName) throws IOException{
 		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".LS"));		
 		
 		byte version=in.readByte();
@@ -61,11 +60,11 @@ public class FileL {
 			}
 			in.close();
 			return Return;
-		default:in.close();throw new FileVersionException("Don't support file verion newer then -128. This file version: "+version);
+		default:in.close();throw new IOException("Don't support file verion newer then -127. This file version: "+version);
 		}
 	}
 
-	public static LNetwork readLNetwork(String fileName) throws FileVersionException,IOException{
+	public static LNetwork readLNetwork(String fileName) throws IOException{
 		LNetwork network=new LNetwork();
 		
 		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".NN"));
@@ -121,7 +120,7 @@ public class FileL {
 			function=FunctionList.getFunction(in.readByte());
 			
 			layersNumber=in.readInt();
-			inputNumber=in.readInt();
+			inputNumber=in.readInt()+1;
 			
 			layersSize=new int[layersNumber];
 			
@@ -133,15 +132,13 @@ public class FileL {
 			
 			for(int j=0;j<layersSize[0];j++){
 				weights[0][j]=new float[inputNumber];
-				for(int k=0;k<inputNumber+1;k++){
+				for(int k=0;k<inputNumber;k++){
 					weights[0][j][k]=in.readFloat();
 				}
 			}
 			
 			if(layersNumber>1){
-				for(byte i=1;i<layersNumber;i++){
-					weights[i]=new float[layersSize[i]][];
-					
+				for(byte i=1;i<layersNumber;i++){					
 					for(int j=0;j<layersSize[i];j++){
 						weights[i][j]=new float[layersSize[i-1]+1];
 						
@@ -154,7 +151,7 @@ public class FileL {
 			network.setWeights(weights);
 			network.setFunction(function);
 			break;
-		default:in.close();throw new FileVersionException("Don't support file verion newer then -127. This file version: "+version);
+		default:in.close();throw new IOException("Don't support file verion newer then -127. This file version: "+version);
 		}
 		in.close();
 			
