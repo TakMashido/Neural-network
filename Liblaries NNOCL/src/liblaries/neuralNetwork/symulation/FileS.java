@@ -4,7 +4,6 @@ import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-import liblaries.neuralNetwork.errors.FileVersionException;
 import liblaries.neuralNetwork.functions.Function;
 import liblaries.neuralNetwork.functions.FunctionList;
 
@@ -64,7 +63,7 @@ public class FileS {
 			function=FunctionList.getFunction(in.readByte());
 			
 			layersNumber=in.readInt();
-			inputNumber=in.readInt();
+			inputNumber=in.readInt()+1;
 			
 			layersSize=new int[layersNumber];
 			
@@ -76,15 +75,13 @@ public class FileS {
 			
 			for(int j=0;j<layersSize[0];j++){
 				weights[0][j]=new float[inputNumber];
-				for(int k=0;k<inputNumber+1;k++){
+				for(int k=0;k<inputNumber;k++){
 					weights[0][j][k]=in.readFloat();
 				}
 			}
 			
 			if(layersNumber>1){
-				for(byte i=1;i<layersNumber;i++){
-					weights[i]=new float[layersSize[i]][];
-					
+				for(byte i=1;i<layersNumber;i++){					
 					for(int j=0;j<layersSize[i];j++){
 						weights[i][j]=new float[layersSize[i-1]+1];
 						
@@ -95,10 +92,8 @@ public class FileS {
 				}
 			}
 			in.close();
-			return new Network(inputNumber,weights,function);
-		default :
-			in.close();
-			throw new FileVersionException("Don't support file verion newer then -127. This file version: "+version);
+			return new Network(inputNumber-1,weights,function);
+		default :in.close();throw new IOException("Don't support file verion newer then -127. This file version: "+version);
 		}
 	}
 	

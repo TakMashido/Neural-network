@@ -149,7 +149,7 @@ public class Network{
 	public final int getInputNumber() {
 		return inputNumber;
 	}
-	public final float[][][] getWeight() {
+	public final float[][][] getWeights() {
 		return weights;
 	}
 	public final float[][] getOutputs() {
