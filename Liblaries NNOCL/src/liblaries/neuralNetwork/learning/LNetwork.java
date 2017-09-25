@@ -429,7 +429,7 @@ public class LNetwork{
 		}
 	}
 	public void countWeights(int NrElementu,float n,float m){
-		if(openCLLoaded) {														//Debug messages(for me)
+		/*if(openCLLoaded) {														//Debug messages(for me)
 			float[][] warstwa =new float[2][];
 			warstwa[0]=new float[weights[0].length*(inputsNumber+1)];
 			warstwa[1]=new float[weights[1].length*weights[1][0].length];
@@ -451,7 +451,7 @@ public class LNetwork{
 			System.out.println("b³¹d=    "+Arrays.toString(error[0])+", "+Arrays.toString(error[1]));
 			System.out.println("wyjœcia= "+Arrays.toString(output[0])+" "+Arrays.toString(output[1]));
 		}
-		System.out.println();
+		System.out.println();*/
 		
 		if(openCLLoaded) {
 			//long time=System.nanoTime();
