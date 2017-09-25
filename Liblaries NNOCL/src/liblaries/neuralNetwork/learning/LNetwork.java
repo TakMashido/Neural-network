@@ -1,6 +1,5 @@
 package liblaries.neuralNetwork.learning;
 
-import java.util.Arrays;
 import java.util.Random;
 
 import org.jocl.CL;
