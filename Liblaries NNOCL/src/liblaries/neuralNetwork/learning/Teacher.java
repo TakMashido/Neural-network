@@ -7,33 +7,33 @@ import liblaries.neuralNetwork.errors.NeuralException;
 
 public class Teacher{
 	private LNetwork network;
-	public float n;
-	public float m;
-	public long cycleNumber;
+	public float n=.2f;
+	public float m=.13f;
+	public int cycleNumber=10000;
 	
 	public float[] dn;														//n and m change values
 	public float[] dm;
-	public long[] zn;
-	public long[] zm;														//number of cycles of n and m change
+	public int[] zn;
+	public int[] zm;														//index of cycles of n or m change
 	
 	public Random random=new Random();
 	
 	private int elementNr;													//number of actual simulate element from LS
 	
-	private long actualCycle=-2;											//-1: checking LS, -2: learning end, other: actual cycle of learn
+	private int actualCycle=-2;											//-1: checking LS, -2: learning end, other: actual cycle of learn
 	
 	public Teacher(){
-		n=0.2f;
-		m=0.13f;
-		cycleNumber=10000;
-		
 		dn=new float[]{n};
 		dm=new float[]{m};
 		
-		zn=new long[]{10000};
-		zm=new long[]{10000};
+		zn=new int[]{cycleNumber};
+		zm=new int[]{cycleNumber};
 	}
-	public Teacher(float N,float M,long cyclesNumber){
+	public Teacher(int cyclesNumber) {
+		this();
+		this.cycleNumber=cyclesNumber;
+	}
+	public Teacher(float N,float M,int cyclesNumber){
 		n=N;
 		m=M;
 		cycleNumber=cyclesNumber;
@@ -41,10 +41,10 @@ public class Teacher{
 		dn=new float[]{n};
 		dm=new float[]{m};
 		
-		zn=new long[]{cyclesNumber};
-		zm=new long[]{cyclesNumber};
+		zn=new int[]{cyclesNumber};
+		zm=new int[]{cyclesNumber};
 	}
-	public Teacher(float[] N,float[] M,long cyclesNumber){
+	public Teacher(float[] N,float[] M,int cyclesNumber){
 		dn=N;
 		dm=M;
 		cycleNumber=cyclesNumber;
@@ -52,11 +52,11 @@ public class Teacher{
 		n=dn[0];
 		m=dm[0];
 		
-		zn=new long[dn.length];
-		zm=new long[dm.length];
+		zn=new int[dn.length];
+		zm=new int[dm.length];
 		
-		long remaining=cycleNumber;						//okreœla ile cyk. ucz.pozosta³o do podzia³u
-		long delta;
+		int remaining=cycleNumber;
+		int delta;
 		for(int i=dn.length-1;i>0;i--){
 			delta=remaining/i;
 			
@@ -72,29 +72,50 @@ public class Teacher{
 			remaining-=delta;
 		}
 	}
-	public Teacher(float[] N,long[] zmianaN,float[] M,long[] zmianaM,long LiczbaCykli){
+	public Teacher(float[] N,int[] changeN,float[] M,int[] changeM,int cyclesNumber){
 		dn=N;
 		dm=M;
 		
-		zn=zmianaN;
-		zm=zmianaM;
+		zn=changeN;
+		zm=changeM;
 		
-		cycleNumber=LiczbaCykli;
+		cycleNumber=cyclesNumber;
 	}
-	public Teacher(String NazwaSN,String NazwaCU,long LiczbaCykli,float N,float M) throws IOException, NeuralException{
-		network=FileL.readLNetwork(NazwaSN);
-		network.setLS(FileL.readLS(NazwaCU));
+	public Teacher(String nnName,String lsName,int cyclesNumber,float N,float M) throws IOException, NeuralException{
+		network=FileL.readLNetwork(nnName);
+		network.setLS(FileL.readLS(lsName));
 		checkTS();
 				
-		cycleNumber=LiczbaCykli;
+		cycleNumber=cyclesNumber;
 		n=N;
 		m=M;
 		
 		dn=new float[]{n};
 		dm=new float[]{m};
 		
-		zn=new long[]{LiczbaCykli};
-		zm=new long[]{LiczbaCykli};
+		zn=new int[]{cyclesNumber};
+		zm=new int[]{cyclesNumber};
+	}
+	
+	public void setLinearN(float nMax, float nMin,int stepsNumber) {
+		float delta=(nMax-nMin)/(stepsNumber);
+		float deltaIndex=cycleNumber/(float)stepsNumber;
+		dn=new float[stepsNumber];
+		zn=new int[stepsNumber];
+		for(int i=0;i<dn.length;i++) {
+			dn[i]=nMax-i*delta;
+			zn[i]=(int)deltaIndex*i;
+		}
+	}
+	public void setLinearM(float mMax, float mMin,int stepsNumber) {
+		float delta=(mMax-mMin)/(stepsNumber);
+		float deltaIndex=cycleNumber/(float)stepsNumber;
+		dm=new float[stepsNumber];
+		zm=new int[stepsNumber];
+		for(int i=0;i<dm.length;i++) {
+			dm[i]=mMax-i*delta;
+			zm[i]=(int)deltaIndex*i;
+		}
 	}
 	
 	public void setNetwork(LNetwork network) {
@@ -117,33 +138,33 @@ public class Teacher{
 		
 		int nrElement=network.getLSLenght();
 		
-		int indexN=0;												//index nastêpnego n, m w tablicy
+		int indexN=0;												//index of next n, m in array
 		int indexM=0;
+		
+		n=dn[0];
+		m=dm[0];
 		
 		for(actualCycle=0;actualCycle<cycleNumber;actualCycle++){
 			for(elementNr=0;elementNr<nrElement;elementNr++){
 				//System.out.println("symulating network");
-				network.lSimulate(elementNr);						//zasymulowanie dzia³ania sieci
-				
-				//System.out.println("counting error");
-				network.coutError(elementNr);
+				network.lSimulate(elementNr);
 				
 				//System.out.println("countion weights");
 				network.countWeights(elementNr,n,m);
 			}
-			if(actualCycle%100==0){								//Randomizacja CU
+			if(actualCycle%100==0){
 				network.mixLS(random);
 			}
 			
-			if(actualCycle==zn[indexN]){							//Zmiana wartoœci n i m zgodnie z tablicami
-				indexN++;
+			if(indexN<zn.length&&actualCycle==zn[indexN]){							//Change values of n m
 				n=dn[indexN];
+				indexN++;
 			}
-			if(actualCycle==zm[indexM]){
-				indexM++;
+			if(indexM<zm.length&&actualCycle==zm[indexM]){
 				m=dn[indexM];
+				indexM++;
 			}
-			
+			network.update(actualCycle);
 			//try{													//CPU "cooler"
 			//	Thread.sleep(500);
 			//}catch(InterruptedException e){
@@ -155,15 +176,15 @@ public class Teacher{
 		actualCycle=-2;
 		return network;
 	}
-	private void checkTS() throws NeuralException{					//Sprawdza czy CU odpowiada SN
+	private void checkTS() throws NeuralException{
 		int inputNumber=network.getInputNumber();
 		int outputNumber=network.getOutputNumber();
-		LearningSeqence[] ci¹gUcz¹cy=network.getCU();
+		LearningSequence[] ci¹gUcz¹cy=network.getLS();
 		
-		for(LearningSeqence CU:ci¹gUcz¹cy){
+		for(LearningSequence CU:ci¹gUcz¹cy){
 			if(CU.inputs.length!=inputNumber)
 				throw new NeuralException(4);
-			if(CU.outputs.length!=outputNumber)
+			if(CU.outputs!=null&&CU.outputs.length!=outputNumber)
 				throw new NeuralException(2);
 		}
 	}

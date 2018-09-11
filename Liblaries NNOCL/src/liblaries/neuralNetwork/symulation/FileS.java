@@ -11,7 +11,11 @@ public class FileS {
 	private static final byte NNSupportedVersion=-127;
 	
 	public static Network readNetwork(String fileName) throws IOException{
-		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".NN"));
+		DataInputStream in;
+		if(fileName.toLowerCase().endsWith(".nn"))
+			in=new DataInputStream(new FileInputStream(fileName));
+		else 
+			in=new DataInputStream(new FileInputStream(fileName+".NN"));
 		
 		Function function;
 		int layersNumber;
@@ -58,7 +62,7 @@ public class FileS {
 				}
 			}
 			in.close();
-			return new Network(inputNumber,weights,function);
+			return new Network(weights,function);
 		case -127:
 			function=FunctionList.getFunction(in.readByte());
 			
@@ -92,7 +96,7 @@ public class FileS {
 				}
 			}
 			in.close();
-			return new Network(inputNumber-1,weights,function);
+			return new Network(weights,function);
 		default :in.close();throw new IOException("Don't support file verion newer then -127. This file version: "+version);
 		}
 	}

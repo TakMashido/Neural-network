@@ -15,6 +15,7 @@ import org.jocl.cl_queue_properties;
 
 import liblaries.neuralNetwork.errors.NeuralException;
 import liblaries.neuralNetwork.functions.Function;
+import liblaries.neuralNetwork.learning.LNetwork;
 
 public class Network{
 	private float[][][] weights;				//Input layer ID=0			[a][b][c] a->layer, b->neuron, c->connection		//First connection in each neuron is bias
@@ -37,19 +38,22 @@ public class Network{
 	private cl_mem[] outputsCL;							//[a]
 	
 	//public Network() {}			//to be or not to be?
-	public Network(int inputNumber, float[][][] weights, Function function) {
-		setWeights(inputNumber,weights);
+	public Network(LNetwork origin) {
+		this(origin.getWeights(),origin.getFunction());
+	}
+	public Network(float[][][] weights, Function function) {
+		setWeights(weights);
 		this.function=function;
 	}
-	public Network(int inputNumber, float[][][] weights, Function function, boolean initializeOpenCL) {
-		setWeights(inputNumber,weights);
+	public Network(float[][][] weights, Function function, boolean initializeOpenCL) {
+		setWeights(weights);
 		this.function=function;
 		
 		if(initializeOpenCL)
 			initializeOpenCL();
 	}
-	public void setWeights(int inputNumber,float[][][] weights) {
-		this.inputNumber=inputNumber;
+	public void setWeights(float[][][] weights) {
+		inputNumber=weights[0][0].length-1;
 		this.weights=weights;
 		
 		if(openCLLoaded)
@@ -78,8 +82,8 @@ public class Network{
 		
 		cl_queue_properties queueProperties=new cl_queue_properties();
 		commandQueue=CL.clCreateCommandQueueWithProperties(context, devices[0], queueProperties, null);
-				
-		program=CL.clCreateProgramWithSource(context, 1, new String[] {function.getOpenCLProgram()}, null, null);
+		
+		program=CL.clCreateProgramWithSource(context, 2, new String[] {function.getOpenCLProgram(),openCLProgram}, null, null);
 		CL.clBuildProgram(program, 1, new cl_device_id[] {devices[0]}, null, null, null);
 		
 		simulateKernel=CL.clCreateKernel(program, "simulate", null);
@@ -146,8 +150,11 @@ public class Network{
 		}else throw new NeuralException(0);
 	}
 	
-	public final int getInputNumber() {
+	public final int getInputsNumber() {
 		return inputNumber;
+	}
+	public int getOutputsNumber() {
+		return outputs[outputs.length-1].length;
 	}
 	public final float[][][] getWeights() {
 		return weights;
@@ -181,6 +188,27 @@ public class Network{
 	}
 	public final boolean isOpenCLLoaded() {
 		return openCLLoaded;
+	}
+	
+	public void removeNeuron(int layer, int neuron) {
+		outputs[layer]=new float[outputs[layer].length-1];
+		layersSize[layer]--;
+		float[][] temp=new float[outputs[layer].length][];
+		System.arraycopy(weights[layer], 0, temp, 0, neuron);
+		System.arraycopy(weights[layer], neuron+1, temp, neuron, temp.length-neuron);
+		weights[layer]=temp;
+		
+		if(layer<weights.length-1) {
+			layer++;
+			float[] temp2;
+			int max=weights[layer].length;
+			for(int i=0;i<max;i++) {
+				temp2=new float[weights[layer][i].length-1];
+				System.arraycopy(weights[layer][i], 0, temp2, 0, neuron+1);
+				System.arraycopy(weights[layer][i], neuron+2, temp2, neuron+1, temp2.length-neuron-1);
+				weights[layer][i]=temp2;
+			}
+		}
 	}
 	
 	public float[] simulate(float[] inputData) {
@@ -224,4 +252,18 @@ public class Network{
 		}
 		return getOutput();
 	}
+	
+	protected static final String openCLProgram=
+			   "__kernel void simulate(__global const float *weights,__global const float *input,__global float *output,int connectionsNumber) {"
+		      +"	int neuron=get_global_id(0);"
+		      + "	int index=neuron*connectionsNumber;"
+		      + "	neuron++;"								//offset of worksize in not supported by openCL yet(neuron[0]==bias)
+		      + "	"
+		      + "	float value=0;"
+		      + "	for(int i=0;i<connectionsNumber;i++){"
+		      + "		value+=weights[index+i]*input[i];"
+		      + "	}"
+		      + "	"
+		      + "	output[neuron]=outputFunction(value);"
+		      + "}";
 }

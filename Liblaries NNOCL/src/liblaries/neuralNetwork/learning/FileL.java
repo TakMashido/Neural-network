@@ -15,7 +15,7 @@ public class FileL {
 	private static final byte NNSupportedVersion=-127;
 	private static final byte LSSupportedVersion=-128;
 	
-	public static void saveLS(String fileName,LearningSeqence[] data) throws IOException{
+	public static void saveLS(String fileName,LearningSequence[] data) throws IOException{
 		DataOutputStream out=new DataOutputStream(new FileOutputStream(fileName+".LS"));
 		
 		out.writeByte(-128);							//File version
@@ -24,7 +24,7 @@ public class FileL {
 		out.writeInt(data[0].inputs.length);
 		out.writeInt(data[0].outputs.length);
 		
-		for(LearningSeqence element:data){
+		for(LearningSequence element:data){
 			for(float input:element.inputs){
 				out.writeDouble(input);
 			}
@@ -35,7 +35,7 @@ public class FileL {
 		
 		out.close();
 	}
-	public static LearningSeqence[] readLS(String fileName) throws IOException{
+	public static LearningSequence[] readLS(String fileName) throws IOException{
 		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".LS"));		
 		
 		byte version=in.readByte();
@@ -45,7 +45,7 @@ public class FileL {
 			int inputNumber=in.readInt();
 			int outputNumber=in.readInt();
 			
-			LearningSeqence[] Return=new LearningSeqence[elementNumber];
+			LearningSequence[] Return=new LearningSequence[elementNumber];
 			
 			for(int i=0;i<elementNumber;i++){
 				Return[i].inputs=new float[inputNumber];
@@ -63,10 +63,11 @@ public class FileL {
 		default:in.close();throw new IOException("Don't support file verion newer then -127. This file version: "+version);
 		}
 	}
-
-	public static LNetwork readLNetwork(String fileName) throws IOException{
-		LNetwork network=new LNetwork();
-		
+	
+	public static LNetwork readLNetwork(String fileName) throws IOException {
+		return readLNetwork(fileName, new BackPropagationNetwork());
+	}
+	public static LNetwork readLNetwork(String fileName, LNetwork network) throws IOException{
 		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".NN"));
 		
 		Function function;
@@ -159,6 +160,8 @@ public class FileL {
 	}
 	public static void saveLNetwork(String fileName,LNetwork network) throws IOException{
 		if(!network.isLearnning()) {
+			if(fileName.toLowerCase().endsWith(".nn"))
+				fileName=fileName.substring(0, fileName.length()-3);
 			File file=new File(fileName+".NN");
 			file.createNewFile();
 			DataOutputStream save=new DataOutputStream(new FileOutputStream(file));

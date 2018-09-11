@@ -1,5 +1,6 @@
 package liblaries.neuralNetwork.learning;
 
+import java.util.HashMap;
 import java.util.Random;
 
 import org.jocl.CL;
@@ -18,115 +19,121 @@ import org.jocl.cl_queue_properties;
 import liblaries.neuralNetwork.errors.NeuralException;
 import liblaries.neuralNetwork.functions.Function;
 
-public class LNetwork{
-	private float[][][] weights;												//input layer have  ID=0	[a][b][c] a->layer, b->neuron, c->connection
-	private float[][][] deltaWeights;											//							[a][b][c]
-	private float[][] error;													//							[a][b]
-	private float[][] output;													//							[a][b]
-	private int inputsNumber;
+public abstract class LNetwork{
+	protected float[][][] weights;												//input layer have  ID=0	[a][b][c] a->layer, b->neuron, c->connection
+	protected float[][][] deltaWeights;											//							[a][b][c]
+	protected float[][] error;													//							[a][b]
+	protected float[][] output;													//							[a][b]
+	protected int inputsNumber;
 	
-	private LearningSeqence[] learningSeqence;
-	private Function function;
+	protected LearningSequence[] learningSequence;
+	protected Function function;
 	
 	int[] layersSize;															//[0] inputNumber, [1] neurons in layer 0, [2] neurons in layer 1, ...
 	int layersNumber;
 	
-	private boolean openCLLoaded=false;
-	private cl_context context;
-	private cl_command_queue commandQueue;
+	protected boolean openCLLoaded=false;
+	protected cl_context context;
+	protected cl_command_queue commandQueue;
 	
-	private cl_program program;
-	private cl_kernel simulateKernel;
-	private cl_kernel outputLayerErrorKernel;
-	private cl_kernel calculateErrorKernel;
-	private cl_kernel calculateWeightsKernel;
+	protected cl_program program;
+	protected cl_kernel simulateKernel;
+	protected cl_kernel outputLayerErrorKernel;
+	protected cl_kernel calculateErrorKernel;
+	protected cl_kernel calculateWeightsKernel;
 	
-	private cl_mem[] weightsCL;							//[a] a->layer
-	private cl_mem[] deltaWeightsCL;					//[a]
-	private cl_mem[] outputsCL;							//[a]			//with bias
-	private cl_mem[] errorCL;							//[a]			//without bias
+	protected cl_mem[] weightsCL;							//[a] a->layer
+	protected cl_mem[] deltaWeightsCL;						//[a]
+	protected cl_mem[] outputsCL;							//[a]			//with bias
+	protected cl_mem[] errorCL;								//[a]			//without bias
 	
-	private boolean learning=false;
+	protected int threadsNumber=1;
+	//protected ExecutorService executor=Executors.newCachedThreadPool();
 	
-	public LNetwork(){}
+	protected boolean learning=false;
+	
+	public LNetwork(){addOpenCLProgram();}
 	public LNetwork(float[][][] weights, Function function) {
 		this.weights=weights;
 		inputsNumber=weights[0][0].length-1;
 		prepareData();
 		
 		this.function=function;
+		addOpenCLProgram();
 	}
-	public LNetwork(float[][][] weights, Function function, boolean loadOpenCL) {
+	public LNetwork(float[][][] weights, Function function, boolean initializeOpenCL) {
 		this.weights=weights;
 		inputsNumber=weights[0][0].length-1;
 		prepareData();
 		
 		this.function=function;
 		
-		if(loadOpenCL)
+		addOpenCLProgram();
+		if(initializeOpenCL)
 			initializeOpenCL();
 	}
 	public LNetwork(int inputsNumber,int[] layersSize, Function function) {
 		createLNetwork(inputsNumber, layersSize, function);
 		prepareData();
+		addOpenCLProgram();
 	}
 	public LNetwork(int inputsNumber,int[] layersSize, Function function, boolean initializeOpenCL) {
 		createLNetwork(inputsNumber, layersSize, function);
+		addOpenCLProgram();
 		if(initializeOpenCL) {
 			initializeOpenCL();
 		}
 		else
 			prepareData();
 	}
-	private void createLNetwork(int inputsNumber,int[] layersSize,Function function){
+	protected void addOpenCLProgram() {
+		openCLProgram.put("simulate",
+			   "__kernel void simulate(__global const float *weights,__global const float *input,__global float *output,int connectionsNumber) {"
+			 + "	int neuron=get_global_id(0);"
+			 + "	int index=neuron*connectionsNumber;"
+			 + "	neuron++;"								//offset of worksize in not supported by openCL yet(neuron[0]==bias)
+			 + "	"
+			 + "	float value=0;"
+			 + "	for(int i=0;i<connectionsNumber;i++){"
+			 + "		value+=weights[index+i]*input[i];"
+			 + "	}"
+			 + "	"
+			 + "	output[neuron]=outputFunction(value);"
+			 + "}");
+	}
+	protected void createLNetwork(int inputsNumber,int[] layersSize,Function function){
 		this.inputsNumber=inputsNumber;
-		inputsNumber++;
 		
 		Random random=new Random();
 		
+		weights=new float[layersSize.length][][];
 		for(int i=0;i<layersSize.length;i++){
-			if(i==0){
-				weights[i]=new float[layersSize[i]][inputsNumber];
-				
-				float maxWeighth=1/(float)(layersSize[i]/20+1)+0.000000000000000001f;
-				
-				for(int j=0;i<layersSize[i];j++){					
-					for(int k=0;i<inputsNumber;k++){
-						while(true){
-							float waga=random.nextFloat();
-							
-							if(waga!=0){
-								weights[i][j][k]=waga%maxWeighth;
-								break;
-							}
+			int connectionsNumber=(i==0?inputsNumber:layersSize[i-1])+1;
+			weights[i]=new float[layersSize[i]][connectionsNumber];
+			
+			float maxWeighth=1/(float)(layersSize[i]/20+1)+0.000000000000000001f;
+			
+			for(int j=0;j<layersSize[i];j++){
+				for(int k=0;k<connectionsNumber;k++){
+					while(true){
+						float weight=random.nextFloat();
+						if(weight!=0){
+							weights[i][j][k]=weight%maxWeighth;
+							break;
 						}
 					}
 				}
 			}
-			else{
-				weights[i]=new float[layersSize[i]][weights[i-1].length];
-				
-				float maxWeight=1/(float)(layersSize[i]/20+1)+0.000000000000000001f;
-				
-				for(int j=0;i<layersSize[i];j++){					
-					for(int k=0;i<layersSize[i-1];k++){
-						weights[i][j][k]=random.nextFloat()%maxWeight;
-					}
-				}
-			}
 		}
-		
 		this.function=function;
 	}
-	private void prepareData() {
+	protected void prepareData() {
 		deltaWeights=new float[weights.length][][];
 		output=new float[weights.length][];
-		error=new float[weights.length][];
 		
 		for(int i=0;i<weights.length;i++) {
 			deltaWeights[i]=new float[weights[i].length][];
 			output[i]=new float[weights[i].length];
-			error[i]=new float[weights[i].length];
 			
 			for(int j=0;j<weights[i].length;j++) {
 				deltaWeights[i][j]=new float[weights[i][j].length];
@@ -141,11 +148,18 @@ public class LNetwork{
 			layersSize[i+1]=weights[i].length;
 		}
 	}
+	public void prepareError() {
+		error=new float[weights.length][];
+		
+		for(int i=0;i<weights.length;i++) {
+			error[i]=new float[weights[i].length];
+		}
+	}
 	
 	public void initializeOpenCL() {
 		CL.setExceptionsEnabled(true);
 		
-		final int platformIndex=0;
+		final int platformIndex=1;
 		final int deviceIndex=0;
 		
 		int[] platformNumber=new int[1];
@@ -164,21 +178,28 @@ public class LNetwork{
 		context=CL.clCreateContext(contextProperties, 1, new cl_device_id[] {devices[deviceIndex]}, null, null, null);
 		
 		cl_queue_properties queueProperties=new cl_queue_properties();
+		//queueProperties.addProperty(CL.CL_QUEUE_PROFILING_ENABLE, 1);
 		commandQueue=CL.clCreateCommandQueueWithProperties(context, devices[deviceIndex], queueProperties, null);
 		
-		program=CL.clCreateProgramWithSource(context, 2, new String[] {openCLprogram,function.getOpenCLProgram()}, null, null);
+		String[] programs=new String[openCLProgram.size()+1];
+		String[] temp=openCLProgram.values().toArray(new String[0]);
+		for(int i=0;i<temp.length;i++) {
+			programs[i+1]=temp[i];
+		}
+		programs[0]=function.getOpenCLProgram();
+		program=CL.clCreateProgramWithSource(context, programs.length, programs, null, null);
 		CL.clBuildProgram(program, 1, new cl_device_id[] {devices[deviceIndex]}, null, null, null);
 		
-		simulateKernel=CL.clCreateKernel(program, "simulate", null);
-		outputLayerErrorKernel=CL.clCreateKernel(program, "outputError", null);
-		calculateErrorKernel=CL.clCreateKernel(program, "calculateError", null);
-		calculateWeightsKernel=CL.clCreateKernel(program, "calculateWeights", null);
+		if(openCLProgram.containsKey("simulate"))			simulateKernel=CL.clCreateKernel(program, "simulate", null);
+		if(openCLProgram.containsKey("outputError"))		outputLayerErrorKernel=CL.clCreateKernel(program, "outputError", null);
+		if(openCLProgram.containsKey("calculateError"))		calculateErrorKernel=CL.clCreateKernel(program, "calculateError", null);
+		if(openCLProgram.containsKey("calculateWeights"))	calculateWeightsKernel=CL.clCreateKernel(program, "calculateWeights", null);
 		
 		prepareCLMem();
 		
 		openCLLoaded=true;
 	}
-	private void prepareCLMem() {
+	protected void prepareCLMem() {
 		weightsCL=new cl_mem[weights.length];
 		deltaWeightsCL=new cl_mem[weights.length];
 		outputsCL=new cl_mem[weights.length];
@@ -202,15 +223,15 @@ public class LNetwork{
 			deltaWeightsCL[i]=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_HOST_NO_ACCESS, Sizeof.cl_float*(index+1), null, null);
 			
 			outputsCL[i]=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float*(layersSize[i+1]+1), Pointer.to(new float[] {1}), null);
-			errorCL[i]=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE, Sizeof.cl_float*(layersSize[i+1]), null, null);								//TODO NN add host_no_acess flag
+			errorCL[i]=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_HOST_NO_ACCESS, Sizeof.cl_float*(layersSize[i+1]), null, null);								//TODO NN add host_no_acess flag
 			//System.out.println("layersSize["+(i+1)+"]="+layersSize[i+1]);
 			//System.out.println("error["+i+"].length="+error[i].length);
 		}
-		if(learningSeqence!=null)
-			for(LearningSeqence ls:learningSeqence)
+		if(learningSequence!=null)
+			for(LearningSequence ls:learningSequence)
 				ls.initializeCL(context,commandQueue);
 	}
-	private void clearCLMem() {
+	protected void clearCLMem() {
 		for(int i=0;i<weights.length;i++) {
 			CL.clReleaseMemObject(weightsCL[i]);
 			CL.clReleaseMemObject(deltaWeightsCL[i]);
@@ -218,7 +239,7 @@ public class LNetwork{
 			CL.clReleaseMemObject(errorCL[i]);
 		}
 		
-		for(LearningSeqence le:learningSeqence) {
+		for(LearningSequence le:learningSequence) {
 			le.clearCL();
 		}
 	}
@@ -235,18 +256,13 @@ public class LNetwork{
 	public void clearOpenCL() {
 		openCLLoaded=false;
 		
-		for(int i=0;i<layersNumber;i++) {
-			CL.clReleaseMemObject(weightsCL[i]);
-			CL.clReleaseMemObject(deltaWeightsCL[i]);
-			CL.clReleaseMemObject(outputsCL[i]);
-			CL.clReleaseMemObject(errorCL[i]);
-		}
+		clearCLMem();
 		
-		CL.clReleaseKernel(simulateKernel);
-		CL.clReleaseKernel(outputLayerErrorKernel);
-		CL.clReleaseKernel(calculateErrorKernel);
-		CL.clReleaseKernel(calculateWeightsKernel);
-		CL.clReleaseProgram(program);
+		if(simulateKernel!=null)CL.clReleaseKernel(simulateKernel);
+		if(outputLayerErrorKernel!=null)CL.clReleaseKernel(outputLayerErrorKernel);
+		if(calculateErrorKernel!=null)CL.clReleaseKernel(calculateErrorKernel);
+		if(calculateWeightsKernel!=null)CL.clReleaseKernel(calculateWeightsKernel);
+		if(program!=null)CL.clReleaseProgram(program);
 		
 		CL.clReleaseCommandQueue(commandQueue);
 		CL.clReleaseContext(context);
@@ -266,12 +282,12 @@ public class LNetwork{
 		}else
 			throw new NeuralException(1);
 	}
-	public final void setLS(LearningSeqence[] ls) {
+	public void setLS(LearningSequence[] ls) {
 		if(!learning) {
-			learningSeqence=ls;
+			learningSequence=ls;
 			
 			if(openCLLoaded) {
-				for(LearningSeqence le:learningSeqence) {
+				for(LearningSequence le:learningSequence) {
 					le.initializeCL(context,commandQueue);
 				}
 			}
@@ -284,6 +300,9 @@ public class LNetwork{
 		}else
 			throw new NeuralException(1);
 	}
+	public void setThreadsNumber(int threads) {
+		threadsNumber=threads;
+	}
 	
 	public final int getInputNumber() {
 		return inputsNumber;
@@ -292,10 +311,10 @@ public class LNetwork{
 		return layersSize[layersNumber];
 	}
 	public final int getLSLenght() {
-		return learningSeqence.length;
+		return learningSequence.length;
 	}
-	public final LearningSeqence[] getCU() {
-		return learningSeqence;
+	public final LearningSequence[] getLS() {
+		return learningSequence;
 	}
 	public final float[] getOutput() {
 		if(openCLLoaded) {
@@ -315,6 +334,10 @@ public class LNetwork{
 		return function;
 	}
 	
+	public int getThreadsNumber() {
+		return threadsNumber;
+	}
+	
 	public final boolean isOpenCLLoaded() {
 		return openCLLoaded;
 	}
@@ -323,13 +346,13 @@ public class LNetwork{
 	}
 	
 	public void mixLS(Random random){
-		int ilEl=learningSeqence.length;
-		LearningSeqence[] newLS=new LearningSeqence[ilEl];
+		int ilEl=learningSequence.length;
+		LearningSequence[] newLS=new LearningSequence[ilEl];
 		boolean[] included=new boolean[ilEl];									//True if LS elemnent is already in newLS
 		
 		int index;
 				
-		for(LearningSeqence cu:learningSeqence){
+		for(LearningSequence cu:learningSequence){
 			while(true){
 				index=random.nextInt(ilEl);
 				if(!included[index]){
@@ -340,7 +363,7 @@ public class LNetwork{
 			}
 		}
 		
-		learningSeqence=newLS;
+		learningSequence=newLS;
 	}
 	
 	public void startLearning() {
@@ -348,12 +371,12 @@ public class LNetwork{
 			learning=true;
 		}else throw new NeuralException(3);
 	}
-	public void lSimulate(int nrElement){
+	public void lSimulate(int nrElement) {
 		if(openCLLoaded) {
 			for(int nrLayer=0;nrLayer<layersNumber;nrLayer++){
 				cl_mem inputDataCL;
 				if(nrLayer==0){															//Input layer
-					inputDataCL=learningSeqence[nrElement].inputsCL;
+					inputDataCL=learningSequence[nrElement].inputsCL;
 				}else{																	//Input layer
 					inputDataCL=outputsCL[nrLayer-1];
 				}
@@ -368,122 +391,51 @@ public class LNetwork{
 				CL.clEnqueueNDRangeKernel(commandQueue, simulateKernel, 1, null ,new long[] {neurons}, new long[]{1}, 0, null, null);
 				}
 		}else {
+			float[] inputData = learningSequence[nrElement].inputs;
+			
 			for(int nrLayer=0;nrLayer<layersNumber;nrLayer++){
-				float[] inputData;
-				if(nrLayer==0){															//Input layer
-					inputData=learningSeqence[nrElement].inputs;
-				}
-				else{																	//Output layer
-					inputData=output[nrLayer-1];
-				}
+				lsimulate(inputData,0,weights[nrLayer].length,nrLayer);
 				
-				for(int i=0;i<weights[nrLayer].length;i++) {
-					output[nrLayer][i]=weights[nrLayer][i][0];
-					for(int j=1;j<weights[nrLayer][i].length;j++){
-						output[nrLayer][i]+=weights[nrLayer][i][j]*inputData[j-1];
-					}
-					
-					output[nrLayer][i]=function.function(output[nrLayer][i]);
-				}
+//				int length;
+//				int end=-1;
+//				Thread[] threads=new Thread[threadsNumber];
+//				for(int i=0;i<threadsNumber;i++) {
+//					length=(weights[nrLayer].length-end-1)/(threadsNumber-i);
+//					SimRunnable runnable=new SimRunnable();
+//					runnable.nrLayer=nrLayer;
+//					runnable.start=end+1;
+//					runnable.inputData=inputData;
+//					end+=length;
+//					runnable.end=end+1;
+//					
+//					threads[i]=new Thread(runnable);
+//					threads[i].start();
+//				}
+//				for(int i=0;i<threadsNumber;i++) {
+//					try {
+//						threads[i].join();
+//					} catch (InterruptedException e) {
+//						Thread.currentThread().interrupt();
+//						System.out.println("Learning interupted");
+//					}
+//				}
 			}
 		}
 	}
-	public void coutError(int nrElementu){
-		boolean pom=true;
+	protected void lsimulate(float[] inputData,int start,int end,int layer) {
+		if(layer>0)inputData=output[layer-1];
 		
-		if(openCLLoaded) {
-			CL.clSetKernelArg(outputLayerErrorKernel, 0, Sizeof.cl_mem, Pointer.to(errorCL[layersNumber-1]));			//Input layer
-			CL.clSetKernelArg(outputLayerErrorKernel, 1, Sizeof.cl_mem, Pointer.to(outputsCL[layersNumber-1]));
-			CL.clSetKernelArg(outputLayerErrorKernel, 2, Sizeof.cl_mem, Pointer.to(learningSeqence[nrElementu].outputsCL));
-			CL.clEnqueueNDRangeKernel(commandQueue, outputLayerErrorKernel, 1, null, new long[] {layersSize[layersNumber-1]}, new long[] {1}, 0, null, null);
+		for(int i=start;i<end;i++) {
+			output[layer][i]=weights[layer][i][0];
+			for(int j=1;j<weights[layer][i].length;j++){
+				output[layer][i]+=weights[layer][i][j]*inputData[j-1];
+			}
 			
-			for(int nrLayer=layersNumber-2;nrLayer>-1;nrLayer--){													//Hidden layer
-				int neurons=layersSize[nrLayer+1];			//WTF? this work
-				int connections=layersSize[nrLayer+1];
-				
-				CL.clSetKernelArg(calculateErrorKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrLayer+1]));
-				CL.clSetKernelArg(calculateErrorKernel, 1, Sizeof.cl_mem, Pointer.to(errorCL[nrLayer+1]));
-				CL.clSetKernelArg(calculateErrorKernel, 2, Sizeof.cl_mem, Pointer.to(errorCL[nrLayer]));
-				CL.clSetKernelArg(calculateErrorKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {connections+1}));
-				CL.clEnqueueNDRangeKernel(commandQueue, calculateErrorKernel, 1, null, new long[] {neurons}, new long[] {1}, 0, null, null);
-			}
-		}else {
-			for(int nrLayer=weights.length-1;nrLayer>-1;nrLayer--){
-				if(pom){																							//Input layer
-					for(int i=0;i<weights[nrLayer].length;i++){
-						error[nrLayer][i]=learningSeqence[nrElementu].outputs[i]-output[nrLayer][i];				//Dont't have to reset error
-					}
-					pom=false;
-				}else{																								//Hidden layer
-					for(int i=0;i<weights[nrLayer].length;i++)														//Reset error
-						error[nrLayer][i]=0;
-					
-					for(int i=0;i<weights[nrLayer+1].length;i++){
-						for(int j=0;j<weights[nrLayer+1][i].length-1;j++){
-							error[nrLayer][j]+=error[nrLayer+1][i]*weights[nrLayer+1][i][j+1];
-						}
-					}
-				}
-			}
+			output[layer][i]=function.function(output[layer][i]);
 		}
 	}
-	public void countWeights(int NrElementu,float n,float m){
-		/*if(openCLLoaded) {														//Debug messages(for me)
-			float[][] warstwa =new float[2][];
-			warstwa[0]=new float[weights[0].length*(inputsNumber+1)];
-			warstwa[1]=new float[weights[1].length*weights[1][0].length];
-			CL.clEnqueueReadBuffer(commandQueue, weightsCL[0], CL.CL_TRUE, 0, Sizeof.cl_float*warstwa[0].length, Pointer.to(warstwa[0]), 0, null, null);
-			CL.clEnqueueReadBuffer(commandQueue, weightsCL[1], CL.CL_TRUE, 0, Sizeof.cl_float*warstwa[1].length, Pointer.to(warstwa[1]), 0, null, null);
-			System.out.println("wagi=    "+Arrays.toString(warstwa[0])+" "+Arrays.toString(warstwa[1]));
-			
-			//System.out.println("error[0].length"+error[0].length);
-			//System.out.println("error[1].length"+error[1].length);
-			CL.clEnqueueReadBuffer(commandQueue, errorCL[0], CL.CL_TRUE, 0, Sizeof.cl_float*error[0].length, Pointer.to(error[0]), 0, null, null);
-			CL.clEnqueueReadBuffer(commandQueue, errorCL[1], CL.CL_TRUE, 0, Sizeof.cl_float*error[1].length, Pointer.to(error[1]), 0, null, null);
-			System.out.println("b³¹d=    "+Arrays.toString(error[0])+", "+Arrays.toString(error[1]));
-			
-			CL.clEnqueueReadBuffer(commandQueue, outputsCL[0], CL.CL_TRUE, Sizeof.cl_float, Sizeof.cl_float*output[0].length, Pointer.to(output[0]), 0, null, null);
-			CL.clEnqueueReadBuffer(commandQueue, outputsCL[1], CL.CL_TRUE, Sizeof.cl_float, Sizeof.cl_float*output[1].length, Pointer.to(output[1]), 0, null, null);
-			System.out.println("wyjœcia= "+Arrays.toString(output[0])+" "+Arrays.toString(output[1]));
-		}else {
-			System.out.println("wagi=    "+Arrays.toString(weights[0][0])+" "+Arrays.toString(weights[0][1])+" "+Arrays.toString(weights[0][2])+", "+Arrays.toString(weights[1][0])+" "+Arrays.toString(weights[1][1]));
-			System.out.println("b³¹d=    "+Arrays.toString(error[0])+", "+Arrays.toString(error[1]));
-			System.out.println("wyjœcia= "+Arrays.toString(output[0])+" "+Arrays.toString(output[1]));
-		}
-		System.out.println();*/
-		
-		if(openCLLoaded) {
-			//long time=System.nanoTime();
-			CL.clSetKernelArg(calculateWeightsKernel, 5, Sizeof.cl_float, Pointer.to(new float[] {n}));
-			CL.clSetKernelArg(calculateWeightsKernel, 6, Sizeof.cl_float, Pointer.to(new float[] {m}));
-			for(int i=layersNumber-1;i>-1;i--) {
-				//long time=System.nanoTime();
-				CL.clSetKernelArg(calculateWeightsKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[i]));
-				CL.clSetKernelArg(calculateWeightsKernel, 1, Sizeof.cl_mem, Pointer.to(deltaWeightsCL[i]));
-				CL.clSetKernelArg(calculateWeightsKernel, 2, Sizeof.cl_mem, Pointer.to(errorCL[i]));
-				CL.clSetKernelArg(calculateWeightsKernel, 3, Sizeof.cl_mem, Pointer.to(i==0?learningSeqence[i].inputsCL:outputsCL[i-1]));
-				CL.clSetKernelArg(calculateWeightsKernel, 4, Sizeof.cl_int, Pointer.to(new int[] {layersSize[i]+1}));
-				//System.out.println("settingup time="+((System.nanoTime()-time)/1000)/1000f+"ms");
-				//time=System.nanoTime();
-				CL.clEnqueueNDRangeKernel(commandQueue, calculateWeightsKernel, 2, null, new long[] {layersSize[i+1],layersSize[i]+1}, new long[] {1,1}, 0, null, null);
-				//System.out.println("invoking time="+((System.nanoTime()-time)/1000)/1000f+"ms");
-			}
-			//System.out.println("time="+((System.nanoTime()-time)/1000)/1000f+"ms");
-		}else {
-			//long time=System.nanoTime();
-			for(int i=0;i<weights.length;i++){
-				for(int j=0;j<weights[i].length;j++){
-					for(int k=0;k<weights[i][j].length;k++){
-						float delta=m*deltaWeights[i][j][k]+n*error[i][j]*(k==0?1:(i==0?learningSeqence[NrElementu].inputs[k-1]:output[i-1][k-1]));					//FIXME NN find where put derivative of function
-						
-						weights[i][j][k]+=delta;
-						deltaWeights[i][j][k]=delta;
-					}
-				}
-			}
-			//System.out.println("time="+((System.nanoTime()-time)/1000)/1000f+"ms");
-		}
-	}
+	public abstract void countWeights(int elementNr,float n,float m);
+	public void update(int cycleNumber) {}
 	public void endLearning() {
 		if(openCLLoaded) {
 			float[] weightsBuffer;
@@ -517,29 +469,62 @@ public class LNetwork{
 		learning=false;
 	}
 	
-	private static final String openCLprogram=
-			  "__kernel void outputError(__global float *error, __global float *outputs,__global float *goodOutputs){"
-			+ "		int neuron=get_global_id(0);"
-			+ "		error[neuron]=goodOutputs[neuron]-outputs[neuron+1];"
-			+ "}\n"
-			+ ""
-			+ "__kernel void calculateError(__global const float *weights, __global const float *errorUp, __global float *error, int connectionsNumber){"
-			+ "		int neuron=get_global_id(0);"
-			+ "		int neuron1=neuron+1;"
-			+ "		"
-			+ "		error[neuron]=0;"
-			+ "		for(int i=0;i<connectionsNumber;i++){"
-			+ "			error[neuron]+=errorUp[i]*weights[neuron1+i*connectionsNumber];"
-			+ "		}"
-			+ "}"
-			+ ""
-			+ "__kernel void calculateWeights(__global float *weights,__global float *deltaWeights,__global float *error,__global float *input,int connectionsNumber, float n, float m){"
-			+ "		int neuron=get_global_id(0);"
-			+ "		int connection=get_global_id(1);"
-			+ "		int index=neuron*connectionsNumber+connection;"
-			+ "		"
-			+ "		float delta=n*input[connection]*error[neuron]+m*deltaWeights[index];"						//FIXME SNOCL find where put the derivative of a function
-			+ "		weights[index]+=delta;"
-			+ "		deltaWeights[index]=delta;"
-			+ "}";
+	protected final HashMap<String,String> openCLProgram=new HashMap<String,String>();
+	
+//	private class SimRunnable implements Runnable{				//Some code of multithreading feature
+//		int start;
+//		int end;
+//		int nrLayer;
+//		float[] inputData;
+//		public void run() {
+//			lsimulate(inputData,start,end,nrLayer);
+//		}
+//	}
+//	private class TaskMenager{
+//		Thread[] threads;
+//		BlockingQueue<Runnable> tasks;
+//		BlockingQueue<Integer> resoults;
+//		int tasksNumber=0;
+//		public TaskMenager(int threadsNumber) {
+//			tasks=new ArrayBlockingQueue<Runnable>(4);
+//			resoults=new ArrayBlockingQueue<Integer>(4);
+//			
+//			threads=new Thread[threadsNumber];
+//			for(int i=0;i<threadsNumber;i++) {
+//				threads[i]=new Thread() {
+//					public void run() {
+//						try {
+//							tasks.take().run();
+//							resoults.put(0);
+//						} catch (InterruptedException e) {
+//							Thread.currentThread().interrupt();
+//							e.printStackTrace();
+//						}
+//					}
+//				};
+//				threads[i].setDaemon(true);
+//				threads[i].start();
+//			}
+//		}
+//		public void add(Runnable runnable) {
+//			try {
+//				tasks.put(runnable);
+//				tasksNumber++;
+//			} catch (InterruptedException e) {
+//				Thread.currentThread().interrupt();
+//				e.printStackTrace();
+//			}
+//		}
+//		public void join() {
+//			while(tasksNumber!=0) {
+//				try {
+//					resoults.take();
+//					tasksNumber--;
+//				} catch (InterruptedException e) {
+//					Thread.currentThread().interrupt();
+//					e.printStackTrace();
+//				}
+//			}
+//		}
+//	}
 }

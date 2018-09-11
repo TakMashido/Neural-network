@@ -9,6 +9,7 @@ public class NeuralException extends RuntimeException{
 	public static final int invalidOutputSize=2;			//Throwed when outputs number of learning sequence is diffrend than network outputs number
 	public static final int learningInProgress=3;			//Throwed when you try start second learning when first is not finished, or set teacher's network durnig learning, or save network duriong learning
 	public static final int invalidInputSize=4;				//Throwed when size of given input(or in LS) is different then network input number
+	public static final int notSupportOpenCL=5;
 	
 	private int errorID;
 	
@@ -23,6 +24,7 @@ public class NeuralException extends RuntimeException{
 		case invalidOutputSize:return "Invalid output number in LS";
 		case learningInProgress:return "Can't start new lerning when previus isn't finished";
 		case invalidInputSize: return "Invalid input number";
+		case notSupportOpenCL: return "OpenCL not supported in this type of network";
 		default :return "Unknow error";
 		}
 	}
