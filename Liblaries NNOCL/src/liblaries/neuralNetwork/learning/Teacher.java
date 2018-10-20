@@ -2,6 +2,7 @@ package liblaries.neuralNetwork.learning;
 
 import java.io.IOException;
 import java.util.Random;
+import java.util.concurrent.BrokenBarrierException;
 
 import liblaries.neuralNetwork.errors.NeuralException;
 
@@ -136,7 +137,7 @@ public class Teacher{
 		actualCycle=-1;
 		checkTS();
 		
-		int nrElement=network.getLSLenght();
+		int elementsCount=network.getLSLenght();
 		
 		int indexN=0;												//index of next n, m in array
 		int indexM=0;
@@ -145,13 +146,17 @@ public class Teacher{
 		m=dm[0];
 		
 		for(actualCycle=0;actualCycle<cycleNumber;actualCycle++){
-			for(elementNr=0;elementNr<nrElement;elementNr++){
-				//System.out.println("symulating network");
-				network.lSimulate(elementNr);
-				
-				//System.out.println("countion weights");
-				network.countWeights(elementNr,n,m);
+			for(elementNr=0;elementNr<elementsCount;elementNr++){
+				try {
+					network.action(elementNr, n, m);
+				} catch (InterruptedException | BrokenBarrierException e) {
+					NeuralException exception=new NeuralException(NeuralException.multiThreadingError);
+					exception.setStackTrace(e.getStackTrace());
+					throw exception;
+				}
 			}
+			network.update(actualCycle);
+			
 			if(actualCycle%100==0){
 				network.mixLS(random);
 			}
@@ -164,12 +169,6 @@ public class Teacher{
 				m=dn[indexM];
 				indexM++;
 			}
-			network.update(actualCycle);
-			//try{													//CPU "cooler"
-			//	Thread.sleep(500);
-			//}catch(InterruptedException e){
-			//	e.printStackTrace();
-			//}
 		}
 		
 		network.endLearning();
@@ -183,9 +182,9 @@ public class Teacher{
 		
 		for(LearningSequence CU:ci¹gUcz¹cy){
 			if(CU.inputs.length!=inputNumber)
-				throw new NeuralException(4);
+				throw new NeuralException(NeuralException.invalidInputSize);
 			if(CU.outputs!=null&&CU.outputs.length!=outputNumber)
-				throw new NeuralException(2);
+				throw new NeuralException(NeuralException.invalidOutputSize);
 		}
 	}
 	public final long getCycle() {

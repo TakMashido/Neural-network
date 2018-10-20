@@ -1,6 +1,6 @@
 package liblaries.neuralNetwork.functions;
 
-public class Squere extends Function{
+public class Squere extends OutputFunction{
 	public Squere(){
 		functionID=-126;
 		

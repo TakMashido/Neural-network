@@ -1,6 +1,6 @@
 package liblaries.neuralNetwork.functions;
 
-public abstract class Function{
+public abstract class OutputFunction{
 	protected byte functionID;
 	protected String functionOpenCLSource;
 	

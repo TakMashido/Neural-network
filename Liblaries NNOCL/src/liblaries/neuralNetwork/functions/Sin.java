@@ -1,6 +1,6 @@
 package liblaries.neuralNetwork.functions;
 
-public class Sin extends Function{
+public class Sin extends OutputFunction{
 	public Sin(){
 		functionID=-124;
 		

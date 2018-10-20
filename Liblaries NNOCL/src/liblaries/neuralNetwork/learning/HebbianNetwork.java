@@ -4,21 +4,21 @@ import org.jocl.CL;
 import org.jocl.Pointer;
 import org.jocl.Sizeof;
 
-import liblaries.neuralNetwork.functions.Function;
+import liblaries.neuralNetwork.functions.OutputFunction;
 
 public class HebbianNetwork extends LNetwork{
 	public HebbianNetwork(){}
-	public HebbianNetwork(float[][][] weights, Function function) {
-		super(weights,function);
+	public HebbianNetwork(float[][][] weights, OutputFunction outputFunction) {
+		super(weights,outputFunction);
 	}
-	public HebbianNetwork(float[][][] weights, Function function, boolean initializeOpenCL) {
-		super(weights,function,initializeOpenCL);
+	public HebbianNetwork(float[][][] weights, OutputFunction outputFunction, boolean initializeOpenCL) {
+		super(weights,outputFunction,initializeOpenCL);
 	}
-	public HebbianNetwork(int inputsNumber,int[] layersSize, Function function) {
-		super(inputsNumber,layersSize,function);
+	public HebbianNetwork(int inputsNumber,int[] layersSize, OutputFunction outputFunction) {
+		super(inputsNumber,layersSize,outputFunction);
 	}
-	public HebbianNetwork(int inputsNumber,int[] layersSize, Function function, boolean initializeOpenCL) {
-		super(inputsNumber,layersSize,function,initializeOpenCL);
+	public HebbianNetwork(int inputsNumber,int[] layersSize, OutputFunction outputFunction, boolean initializeOpenCL) {
+		super(inputsNumber,layersSize,outputFunction,initializeOpenCL);
 	}
 	
 	protected void addOpenCLProgram() {
@@ -40,7 +40,7 @@ public class HebbianNetwork extends LNetwork{
 				 + "}");
 	}
 	
-	public void countWeights(int elementNr, float n, float m) {
+	public void lCountWeights(int elementNr, float n, float m) {
 		if(openCLLoaded) {
 			CL.clSetKernelArg(calculateWeightsKernel, 5, Sizeof.cl_float, Pointer.to(new float[] {n}));
 			CL.clSetKernelArg(calculateWeightsKernel, 6, Sizeof.cl_float, Pointer.to(new float[] {m}));
@@ -56,8 +56,7 @@ public class HebbianNetwork extends LNetwork{
 			for(int i=0;i<weights.length;i++){
 				for(int j=0;j<weights[i].length;j++) {
 					for(int k=1;k<weights[i][j].length;k++){
-						//float delta=m*deltaWeights[i][j][k]+n*((k==0?1:(i==0?learningSequence[elementNr].inputs[k-1]:output[i-1][k-1]))-weights[i][j][k]);
-						float delta=m*deltaWeights[i][j][k]+n*(i==0?learningSequence[elementNr].inputs[k-1]:output[i-1][k-1])*output[i][j];
+						float delta=m*deltaWeights[i][j][k]+n*(i==0?learningSequence[elementNr].inputs[k-1]:outputs[i-1][k-1])*outputs[i][j];
 						weights[i][j][k]+=delta;
 						deltaWeights[i][j][k]=delta;
 					}

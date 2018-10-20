@@ -1,6 +1,6 @@
 package liblaries.neuralNetwork.functions;
 
-public class Tanh extends Function{
+public class Tanh extends OutputFunction{
 	public Tanh(){
 		functionID=-127;
 		

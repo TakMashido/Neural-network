@@ -3,7 +3,7 @@ package liblaries.neuralNetwork.learning;
 import java.util.function.BiFunction;
 
 import liblaries.neuralNetwork.errors.NeuralException;
-import liblaries.neuralNetwork.functions.Function;
+import liblaries.neuralNetwork.functions.OutputFunction;
 
 public class KohonenNetwork extends LNetwork {
 	public final BiFunction<Integer,Integer,Float> linear1DFunction=new BiFunction<Integer,Integer,Float>(){
@@ -21,33 +21,47 @@ public class KohonenNetwork extends LNetwork {
 	protected int[] zd=new int[0];				//Index of distanceChange
 	protected BiFunction<Integer,Integer,Float> distanceFunction=linear1DFunction;
 	
-	public KohonenNetwork(){}
-	public KohonenNetwork(float[][][] weights, Function function) {
-		super(weights,function);
+	int[] maxIndex;								//Index and value of neuron of each part of network. Used in multiThreading
+	float[] maxValue;
+	
+	public KohonenNetwork(float[][][] weights, OutputFunction outputFunction) {
+		super(weights,outputFunction);
+		init();
 	}
-	public KohonenNetwork(float[][][] weights, Function function, boolean initializeOpenCL) {
-		super(weights,function);
+	public KohonenNetwork(float[][][] weights, OutputFunction outputFunction, boolean initializeOpenCL) {
+		super(weights,outputFunction);
 		if(initializeOpenCL) initializeOpenCL();
+		init();
 	}
-	public KohonenNetwork(int inputsNumber,int[] layersSize, Function function) {
-		super(inputsNumber,layersSize,function);
+	public KohonenNetwork(int inputsNumber,int[] layersSize, OutputFunction outputFunction) {
+		super(inputsNumber,layersSize,outputFunction);
+		for(int i=0;i<weights.length;i++) {
+			for(int j=0;j<weights[i].length;j++) {
+				normalizeData(weights[i][j]);
+			}
+		}
+		init();
 	}
-	public KohonenNetwork(int inputsNumber,int[] layersSize, Function function, boolean initializeOpenCL) {
-		super(inputsNumber,layersSize,function);
+	public KohonenNetwork(int inputsNumber,int[] layersSize, OutputFunction outputFunction, boolean initializeOpenCL) {
+		super(inputsNumber,layersSize,outputFunction);
 		if(initializeOpenCL) initializeOpenCL();
+		init();
 	}
-	protected void createLNetwork(int inputsNumber,int[] layersSize,Function function){
-		super.createLNetwork(inputsNumber, layersSize, function);
+	protected void init() {
+		//supportsMultiThreading=false;
+	}
+	protected void createLNetwork(int inputsNumber,int[] layersSize,OutputFunction outputFunction){
+		super.createLNetwork(inputsNumber, layersSize, outputFunction);
 		for(float[][] layer:weights)
 			for(float[] neuron:layer) {
 				neuron[0]=0;
-				normalizeData(neuron);
+				//normalizeData(neuron);
 			}
 	}
 	
 	public void normalizeData(float[] data) {
-		float sum=0;
-		for(int i=0;i<data.length;i++)
+		float sum=data[0]*data[0];
+		for(int i=1;i<data.length;i++)
 			sum+=data[i]*data[i];
 		if(sum!=0) {
 			sum=(float)Math.sqrt(sum);
@@ -74,13 +88,6 @@ public class KohonenNetwork extends LNetwork {
 			dd[i]=max--;
 			zd[i]=cyclesPerChange*i;
 		}
-	}
-	public void setLS(LearningSequence[] ls) {
-		for(LearningSequence lsEl:ls) {
-			normalizeData(lsEl.inputs);
-		}
-		
-		super.setLS(ls);
 	}
 	public void initializeOpenCL() {
 		throw new NeuralException(NeuralException.notSupportOpenCL);
@@ -124,6 +131,17 @@ public class KohonenNetwork extends LNetwork {
 		};
 	}
 	
+	public void setThreadsNumber(int threads) {
+		supportsMultiThreading=true;
+		super.setThreadsNumber(threads);
+		maxIndex=new int[threadsNumber];
+		maxValue=new float[threadsNumber];
+	}
+	
+	public byte getSimMethodID() {
+		return 1;
+	}
+	
 //	public void prepareCLMem() {
 //		super.prepareCLMem();
 //		winIndex=CL.clCreateBuffer(context, CL.CL_MEM_READ_WRITE|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float, Pointer.to(new float[] {-1}), null);
@@ -132,42 +150,91 @@ public class KohonenNetwork extends LNetwork {
 //		super.clearCLMem();
 //		CL.clReleaseMemObject(winIndex);
 //	}
-	int cycleNumber;
-	public void countWeights(int elementNr, float n, float m) {
-		//if(elementNr%100==0)
-		//	System.out.println(Arrays.toString(weights[0][0])+"\n"+Arrays.toString(deltaWeights[0][0])+"\n");
-		//if(elementNr==658)
-		//	System.out.println(Arrays.toString(weights[0][0])+"\n"+Arrays.toString(deltaWeights[0][0])+"\n");
+	protected void lSimulate(int elementNr) {
+		float[] inputData=learningSequence[elementNr].inputs;
+		
+		for(int i=0;i<layersNumber;i++) {
+			int index=0;
+			if(i>0)inputData=outputs[i-1];
+			
+			for(int j=0;j<layersSize[i];j++) {
+				outputs[i][j]=0;
+				for(int k=1;k<weights[i][j].length;k++){
+					float delta=weights[i][j][k]-inputData[k-1];
+					outputs[i][j]+=delta*delta;
+					//output[i][j]=Math.fma(delta, delta, output[i][j]);
+				}
+				outputs[i][j]=-(float)Math.sqrt(outputs[i][j]);
+				
+				//output[layer][i]=function.function(output[layer][i]);
+				
+				if(outputs[i][j]>outputs[i][index])index=j;
+			}
+		}
+	}
+	protected void lSimulate(int elementNr, int start,int end,int layer,int threadID) {
+		float[] inputData;
+		if(layer>0)inputData=outputs[layer-1];
+		else inputData=learningSequence[elementNr].inputs;
+		
+		int index=0;
+		for(int i=start;i<end;i++) {
+			outputs[layer][i]=weights[layer][i][0];
+			for(int j=1;j<weights[layer][i].length;j++){
+				float delta=weights[layer][i][j]-inputData[j-1];
+				outputs[layer][i]+=delta*delta;
+			}
+			outputs[layer][i]=-(float)Math.sqrt(outputs[layer][i]);
+			
+			//output[layer][i]=function.function(output[layer][i]);
+			
+			if(outputs[layer][i]>outputs[layer][index])index=i;
+		}
+		maxIndex[threadID]=index;
+		maxValue[threadID]=outputs[layer][index];
+	}
+	public void lCountWeights(int elementNr, float n, float m) {
 		for(int i=0;i<weights.length;i++) {
 			int maxIndex=0;
 			for(int j=1;j<weights[i].length;j++) 
-				if(output[i][j]>output[i][j-1])maxIndex=j;
+				if(outputs[i][j]>outputs[i][maxIndex])maxIndex=j;
 			
 			for(int j=0;j<weights[i].length;j++) {
 				float h=distanceFunction.apply(j, maxIndex);
-//				if(!Float.isFinite(h)) {
-//					System.out.println("h: "+weights[i][j][0]+" "+h+" "+Arrays.toString(learningSequence[elementNr].inputs));
-//					System.exit(-1);
-//				}
-				//System.out.println(h);
 				if(h!=0)
 					for(int k=1;k<weights[i][j].length;k++) {
-//						if(j==0&k==9&elementNr==653)
-//							System.out.println(weights[i][j][k]);
-						float delta=m*deltaWeights[i][j][k]+n*h*((i==0?learningSequence[elementNr].inputs[k-1]:output[i-1][k-1])-weights[i][j][k]);
-//						if(!Float.isFinite(delta)) {
-//							System.out.println("d: "+m+" "+deltaWeights[i][j][k]+" "+n+" "+h+" "+((i==0?learningSequence[elementNr].inputs[k-1]:output[i-1][k-1])+" "+weights[i][j][k]));
-//							System.exit(-1);
-//						}
+						float delta=m*deltaWeights[i][j][k]+n*h*((i==0?learningSequence[elementNr].inputs[k-1]:outputs[i-1][k-1])-weights[i][j][k]);
 						weights[i][j][k]+=delta;
 						deltaWeights[i][j][k]=delta;
 					}
 			}
 		}
 	}
-	public void update(int cycleNumber) {
+	public void lCountWeights(int elementNr, float n, float m, int start, int end, int layer, int threadID) {
+		int index=0;
+		for(int j=0;j<maxIndex.length;j++) 
+			if(maxValue[j]>maxValue[index])index=j;
+		
+		index=maxIndex[index];;
+		
+		for(int j=start;j<end;j++) {
+			float h=distanceFunction.apply(j, index);
+			if(h!=0)
+				for(int k=1;k<weights[layer][j].length;k++) {
+					float delta=m*deltaWeights[layer][j][k]+n*h*((layer==0?learningSequence[elementNr].inputs[k-1]:outputs[layer-1][k-1])-weights[layer][j][k]);
+					weights[layer][j][k]+=delta;
+					deltaWeights[layer][j][k]=delta;
+				}
+		}
+			
+	}
+	private int cycleNumber;
+	private int lastCycle;
+	public void update(int cycle) {
+		int delta=cycle-lastCycle;
+		if(delta<0)delta=cycle;
+		this.cycleNumber+=delta;
 		if(dIndex!=zd.length&&cycleNumber<zd[dIndex])
 			maxDistance=dd[dIndex++];
-		this.cycleNumber=cycleNumber;
 	}
 }

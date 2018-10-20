@@ -1,6 +1,6 @@
 package liblaries.neuralNetwork.functions;
 
-public class Sigmoidal extends Function{
+public class Sigmoidal extends OutputFunction{
 	public Sigmoidal(){
 		functionID=-125;
 		

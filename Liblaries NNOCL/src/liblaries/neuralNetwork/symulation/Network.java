@@ -14,16 +14,88 @@ import org.jocl.cl_program;
 import org.jocl.cl_queue_properties;
 
 import liblaries.neuralNetwork.errors.NeuralException;
-import liblaries.neuralNetwork.functions.Function;
+import liblaries.neuralNetwork.functions.OutputFunction;
 import liblaries.neuralNetwork.learning.LNetwork;
 
 public class Network{
+	public SymulationFunction[] symulationFunctions=new SymulationFunction[] {
+		new SymulationFunction() {
+			public void apply(float[] inputData) {
+				for(int nrLayer=0;nrLayer<weights.length;nrLayer++){
+					if(nrLayer!=0){
+						inputData=outputs[nrLayer-1];
+					}
+					
+					for(int i=0;i<weights[nrLayer].length;i++) {
+						outputs[nrLayer][i]=weights[nrLayer][i][0];
+						for(int j=1;j<weights[nrLayer][i].length;j++){
+							outputs[nrLayer][i]+=weights[nrLayer][i][j]*inputData[j-1];
+						}
+						
+						outputs[nrLayer][i]=outputFunction.function(outputs[nrLayer][i]);
+					}
+				}
+			}
+			public void applyOpenCL(float[] inputData) {
+				cl_mem inputDataCL;
+				for(int nrLayer=0;nrLayer<layersNumber;nrLayer++){
+					if(nrLayer==0){																//Input layer
+						inputDataCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_ONLY|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float*(inputData.length+1), Pointer.to(inputData), null);
+						CL.clEnqueueWriteBuffer(commandQueue, inputDataCL, CL.CL_TRUE, 0, Sizeof.cl_float, Pointer.to(new float[] {1}), 0, null, null);
+						CL.clEnqueueWriteBuffer(commandQueue, inputDataCL, CL.CL_TRUE, Sizeof.cl_float, Sizeof.cl_float*inputNumber, Pointer.to(inputData), 0, null, null);
+					}else{
+						inputDataCL=outputsCL[nrLayer-1];
+					}
+					int neurons=layersSize[nrLayer+1];
+					int connections=layersSize[nrLayer]+1;
+					
+					CL.clSetKernelArg(simulateKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrLayer]));
+					CL.clSetKernelArg(simulateKernel, 1, Sizeof.cl_mem, Pointer.to(inputDataCL));
+					CL.clSetKernelArg(simulateKernel, 2, Sizeof.cl_mem, Pointer.to(outputsCL[nrLayer]));
+					CL.clSetKernelArg(simulateKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {connections}));
+					CL.clEnqueueNDRangeKernel(commandQueue, simulateKernel, 1, null ,new long[] {neurons}, new long[]{1}, 0, null, null);
+				}
+			}
+		},
+		new SymulationFunction() {
+			public void prepareData(float[] inputData) {
+				float sum=inputData[0]*inputData[0];
+				for(int i=1;i<inputData.length;i++) {
+					sum+=inputData[i]*inputData[i];
+				}
+				sum=(float)Math.sqrt(sum);
+				for(int i=0;i<inputData.length;i++) {
+					inputData[i]/=sum;
+				}
+			}
+			public void apply(float[] inputData) {
+				//prepareData(inputData);
+				for(int nrLayer=0;nrLayer<weights.length;nrLayer++){
+					if(nrLayer!=0){
+						inputData=outputs[nrLayer-1];
+					}
+					
+					for(int i=0;i<weights[nrLayer].length;i++) {
+						outputs[nrLayer][i]=weights[nrLayer][i][0];
+						for(int j=1;j<weights[nrLayer][i].length;j++){
+							float delta=inputData[j-1]-weights[nrLayer][i][j];
+							outputs[nrLayer][i]+=delta*delta;
+						}
+						outputs[nrLayer][i]=-(float)Math.sqrt(outputs[nrLayer][i]);
+						
+						//outputs[nrLayer][i]=outputFunction.function(outputs[nrLayer][i]);
+					}
+				}
+			}
+		}
+	};
+	
 	private float[][][] weights;				//Input layer ID=0			[a][b][c] a->layer, b->neuron, c->connection		//First connection in each neuron is bias
 	private float[][] outputs;
 	
 	private int inputNumber;
 	
-	public Function function;
+	public OutputFunction outputFunction;
 	
 	int[] layersSize;
 	int layersNumber;
@@ -37,17 +109,24 @@ public class Network{
 	private cl_mem[] weightsCL;							//[a] a->layer
 	private cl_mem[] outputsCL;							//[a]
 	
+	public SymulationFunction symFunction=symulationFunctions[0];
+	
 	//public Network() {}			//to be or not to be?
 	public Network(LNetwork origin) {
 		this(origin.getWeights(),origin.getFunction());
+		symFunction=symulationFunctions[origin.getSimMethodID()];
 	}
-	public Network(float[][][] weights, Function function) {
+	public Network(float[][][] weights, OutputFunction outputFunction) {
 		setWeights(weights);
-		this.function=function;
+		this.outputFunction=outputFunction;
 	}
-	public Network(float[][][] weights, Function function, boolean initializeOpenCL) {
+	public Network(float[][][] weights, OutputFunction outputFunction, byte symulationMethodID) {
+		this(weights,outputFunction);
+		symFunction=symulationFunctions[symulationMethodID];
+	}
+	public Network(float[][][] weights, OutputFunction outputFunction, boolean initializeOpenCL) {
 		setWeights(weights);
-		this.function=function;
+		this.outputFunction=outputFunction;
 		
 		if(initializeOpenCL)
 			initializeOpenCL();
@@ -83,7 +162,7 @@ public class Network{
 		cl_queue_properties queueProperties=new cl_queue_properties();
 		commandQueue=CL.clCreateCommandQueueWithProperties(context, devices[0], queueProperties, null);
 		
-		program=CL.clCreateProgramWithSource(context, 2, new String[] {function.getOpenCLProgram(),openCLProgram}, null, null);
+		program=CL.clCreateProgramWithSource(context, 2, new String[] {outputFunction.getOpenCLProgram(),openCLProgram}, null, null);
 		CL.clBuildProgram(program, 1, new cl_device_id[] {devices[0]}, null, null, null);
 		
 		simulateKernel=CL.clCreateKernel(program, "simulate", null);
@@ -216,41 +295,18 @@ public class Network{
 			throw new NeuralException(4);
 		
 		if(openCLLoaded) {
-			cl_mem inputDataCL;
-			for(int nrLayer=0;nrLayer<layersNumber;nrLayer++){
-				if(nrLayer==0){																//Input layer
-					inputDataCL=CL.clCreateBuffer(context, CL.CL_MEM_READ_ONLY|CL.CL_MEM_COPY_HOST_PTR, Sizeof.cl_float*(inputData.length+1), Pointer.to(inputData), null);
-					CL.clEnqueueWriteBuffer(commandQueue, inputDataCL, CL.CL_TRUE, 0, Sizeof.cl_float, Pointer.to(new float[] {1}), 0, null, null);
-					CL.clEnqueueWriteBuffer(commandQueue, inputDataCL, CL.CL_TRUE, Sizeof.cl_float, Sizeof.cl_float*inputNumber, Pointer.to(inputData), 0, null, null);
-				}else{
-					inputDataCL=outputsCL[nrLayer-1];
-				}
-				int neurons=layersSize[nrLayer+1];
-				int connections=layersSize[nrLayer]+1;
-				
-				CL.clSetKernelArg(simulateKernel, 0, Sizeof.cl_mem, Pointer.to(weightsCL[nrLayer]));
-				CL.clSetKernelArg(simulateKernel, 1, Sizeof.cl_mem, Pointer.to(inputDataCL));
-				CL.clSetKernelArg(simulateKernel, 2, Sizeof.cl_mem, Pointer.to(outputsCL[nrLayer]));
-				CL.clSetKernelArg(simulateKernel, 3, Sizeof.cl_int, Pointer.to(new int[] {connections}));
-				CL.clEnqueueNDRangeKernel(commandQueue, simulateKernel, 1, null ,new long[] {neurons}, new long[]{1}, 0, null, null);
-			}
+			symFunction.applyOpenCL(inputData);
 		}else {
-			for(int nrLayer=0;nrLayer<weights.length;nrLayer++){
-				if(nrLayer!=0){
-					inputData=outputs[nrLayer-1];
-				}
-				
-				for(int i=0;i<weights[nrLayer].length;i++) {
-					outputs[nrLayer][i]=weights[nrLayer][i][0];
-					for(int j=1;j<weights[nrLayer][i].length;j++){
-						outputs[nrLayer][i]+=weights[nrLayer][i][j]*inputData[j-1];
-					}
-					
-					outputs[nrLayer][i]=function.function(outputs[nrLayer][i]);
-				}
-			}
+			symFunction.apply(inputData);
 		}
 		return getOutput();
+	}
+	
+	public abstract static class SymulationFunction{
+		public abstract void apply(float[] inputData);
+		public void applyOpenCL(float[] inputData) {
+			throw new NeuralException(5);
+		}
 	}
 	
 	protected static final String openCLProgram=

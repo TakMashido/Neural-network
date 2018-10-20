@@ -4,11 +4,11 @@ import java.io.DataInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-import liblaries.neuralNetwork.functions.Function;
+import liblaries.neuralNetwork.functions.OutputFunction;
 import liblaries.neuralNetwork.functions.FunctionList;
 
 public class FileS {
-	private static final byte NNSupportedVersion=-127;
+	public static final byte NNSupportedVersion=-126;
 	
 	public static Network readNetwork(String fileName) throws IOException{
 		DataInputStream in;
@@ -17,7 +17,7 @@ public class FileS {
 		else 
 			in=new DataInputStream(new FileInputStream(fileName+".NN"));
 		
-		Function function;
+		OutputFunction outputFunction;
 		int layersNumber;
 		int inputNumber;
 		int[] layersSize;
@@ -26,7 +26,7 @@ public class FileS {
 		byte version=in.readByte();
 		switch(version){
 		case -128:
-			function=FunctionList.getFunction(in.readByte());
+			outputFunction=FunctionList.getFunction(in.readByte());
 			
 			layersNumber=in.readByte();
 			inputNumber=in.readInt();
@@ -62,9 +62,12 @@ public class FileS {
 				}
 			}
 			in.close();
-			return new Network(weights,function);
+			return new Network(weights,outputFunction);
 		case -127:
-			function=FunctionList.getFunction(in.readByte());
+		case -126:
+			outputFunction=FunctionList.getFunction(in.readByte());
+			byte symulationMethodID=0;
+			if(version==-126)symulationMethodID=in.readByte();
 			
 			layersNumber=in.readInt();
 			inputNumber=in.readInt()+1;
@@ -96,12 +99,8 @@ public class FileS {
 				}
 			}
 			in.close();
-			return new Network(weights,function);
+			return new Network(weights,outputFunction,symulationMethodID);
 		default :in.close();throw new IOException("Don't support file verion newer then -127. This file version: "+version);
 		}
-	}
-	
-	public static byte getNNSupportedVersion() {
-		return NNSupportedVersion;
 	}
 }

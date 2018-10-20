@@ -8,12 +8,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 
 import liblaries.neuralNetwork.errors.NeuralException;
-import liblaries.neuralNetwork.functions.Function;
+import liblaries.neuralNetwork.functions.OutputFunction;
 import liblaries.neuralNetwork.functions.FunctionList;
 
 public class FileL {
-	private static final byte NNSupportedVersion=-127;
-	private static final byte LSSupportedVersion=-128;
+	public static final byte NNSupportedVersion=-126;
+	public static final byte LSSupportedVersion=-128;
 	
 	public static void saveLS(String fileName,LearningSequence[] data) throws IOException{
 		DataOutputStream out=new DataOutputStream(new FileOutputStream(fileName+".LS"));
@@ -70,7 +70,7 @@ public class FileL {
 	public static LNetwork readLNetwork(String fileName, LNetwork network) throws IOException{
 		DataInputStream in=new DataInputStream(new FileInputStream(fileName+".NN"));
 		
-		Function function;
+		OutputFunction outputFunction;
 		int layersNumber;
 		int inputNumber;
 		int[] layersSize;
@@ -79,7 +79,8 @@ public class FileL {
 		byte version=in.readByte();											//file version
 		switch(version){
 		case -128:
-			function=FunctionList.getFunction(in.readByte());
+			outputFunction=FunctionList.getFunction(in.readByte());
+			in.readByte();													//add support of diffrend simulation options in LNetwork
 			
 			layersNumber=in.readByte();
 			inputNumber=in.readInt();
@@ -115,10 +116,10 @@ public class FileL {
 				}
 			}
 			network.setWeights(weights);
-			network.setFunction(function);
+			network.setFunction(outputFunction);
 			break;
 		case -127:
-			function=FunctionList.getFunction(in.readByte());
+			outputFunction=FunctionList.getFunction(in.readByte());
 			
 			layersNumber=in.readInt();
 			inputNumber=in.readInt()+1;
@@ -150,7 +151,7 @@ public class FileL {
 				}
 			}
 			network.setWeights(weights);
-			network.setFunction(function);
+			network.setFunction(outputFunction);
 			break;
 		default:in.close();throw new IOException("Don't support file verion newer then -127. This file version: "+version);
 		}
@@ -166,9 +167,10 @@ public class FileL {
 			file.createNewFile();
 			DataOutputStream save=new DataOutputStream(new FileOutputStream(file));
 			
-			save.writeByte(-127);											//version of .NN
+			save.writeByte(-126);											//version of .NN
 			
 			save.writeByte(network.getFunction().getFunctionID());
+			save.writeByte(network.getSimMethodID());
 			
 			float[][][] weights=network.getWeights();
 			save.writeInt(weights.length);
@@ -188,12 +190,5 @@ public class FileL {
 			save.close();
 		}
 		else throw new NeuralException(3);
-	}
-	
-	public static byte getNNSupportedVersion() {
-		return NNSupportedVersion;
-	}
-	public static byte getLSSupportedVersion() {
-		return LSSupportedVersion;
 	}
 }

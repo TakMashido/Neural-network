@@ -1,6 +1,6 @@
 package liblaries.neuralNetwork.functions;
 
-public class Linear extends Function{
+public class Linear extends OutputFunction{
 	public Linear() {
 		functionID=-128;
 		
