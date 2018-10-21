@@ -1,5 +1,8 @@
-marge error and weights calculation to one mmethod(optymalization)
+add other n,m in gng network for neurons connected to winner
+add option to stop learning on set acumulated error value
+marge Teacher and LNetwork for better diffrend parametrs networks overwriting
 add dynamic n and m for each layer(baseN/connectionNumber, baseM/connectionNumber)
+optymalize openCL and multithreading learning options. Slighty slower then one thread learning
 check if making kerel for each layer can speed up(one time set up parameters)
 add validational set
 add ability to choose device we want to run network at(for now device 0 in platform 0).
