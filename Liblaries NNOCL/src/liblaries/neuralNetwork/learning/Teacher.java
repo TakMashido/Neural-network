@@ -130,7 +130,6 @@ public class Teacher{
 		return network;
 	}
 	
-	
 	public LNetwork teach() throws NeuralException{
 		network.startLearning();
 		

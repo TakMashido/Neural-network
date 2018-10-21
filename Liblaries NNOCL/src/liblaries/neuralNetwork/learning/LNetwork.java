@@ -27,7 +27,7 @@ public abstract class LNetwork{
 	protected float[][][] weights;												//input layer have  ID=0	[a][b][c] a->layer, b->neuron, c->connection
 	protected float[][][] deltaWeights;											//							[a][b][c]
 	protected float[][] error;													//							[a][b]
-	protected float[][] outputs;													//							[a][b]
+	protected float[][] outputs;												//							[a][b]
 	protected int inputsNumber;
 	
 	protected LearningSequence[] learningSequence;
@@ -152,7 +152,7 @@ public abstract class LNetwork{
 		for(int i=0;i<layersSize.length-1;i++){
 			int connectionsNumber=layersSize[i]+1;
 			if(weights[i]==null)
-				weights[i]=new float[layersSize[i+1]+1][connectionsNumber];
+				weights[i]=new float[layersSize[i+1]][connectionsNumber];
 			
 			float maxWeighth=1/(float)(layersSize[i]/20+1)+0.000000000000000001f;
 			
