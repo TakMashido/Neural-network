@@ -12,6 +12,7 @@ public class NeuralException extends RuntimeException{
 	public static final int notSupportOpenCL=5;				//Throwed when you try use openCL on network which don't support this
 	public static final int notSupportMultiThreading=6;		//Throwed when you try to set more threads on network witch didn't support it
 	public static final int multiThreadingError=7;			//Throwed when worker thread gets interrupted or Cyclic barrier throws error. If this occur this is propably some liblaries bug. Please report an issue on github with stack trace.
+	public static final int noLearningSequence=8;			//Throwed when you try to start learning network without learning sequence seted
 	private int errorID;
 	
 	public NeuralException(int errorID) {
@@ -28,6 +29,7 @@ public class NeuralException extends RuntimeException{
 		case notSupportOpenCL: return "OpenCL not supported for this operation";
 		case notSupportMultiThreading: return "This network didn't support multithreading";
 		case multiThreadingError: return "Error ocured in worker thread";
+		case noLearningSequence: return "Please set learning sequence";
 		default :return "Unknow error";
 		}
 	}

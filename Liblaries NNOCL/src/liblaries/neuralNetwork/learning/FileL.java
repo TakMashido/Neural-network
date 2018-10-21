@@ -173,16 +173,14 @@ public class FileL {
 			save.writeByte(network.getSimMethodID());
 			
 			float[][][] weights=network.getWeights();
-			save.writeInt(weights.length);
+			save.writeInt(network.layersNumber);
 			
-			save.writeInt(network.getInputNumber());
-			
-			for(int i=0;i<weights.length;i++){
-				save.writeInt(weights[i].length);
+			for(int i=0;i<network.layersNumber+1;i++){
+				save.writeInt(network.layersSize[i]);
 			}
-			for(int i=0;i<weights.length;i++){
-				for(int j=0;j<weights[i].length;j++){
-					for(int k=0;k<weights[i][j].length;k++){
+			for(int i=0;i<network.layersNumber;i++){
+				for(int j=0;j<network.layersSize[i+1];j++){
+					for(int k=0;k<network.layersSize[i];k++){
 						save.writeFloat(weights[i][j][k]);
 					}
 				}

@@ -23,6 +23,9 @@ public class LearningSequence{
 		this.outputs=outputs;
 	}
 	
+	public static LearningSequence[] create(float[][] inputs) {
+		return create(inputs,null);
+	}
 	public static LearningSequence[] create(float[][] inputs, float[][] outputs){
 		LearningSequence[] ls=new LearningSequence[inputs.length];
 		

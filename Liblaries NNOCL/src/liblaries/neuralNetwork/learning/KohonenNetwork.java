@@ -19,10 +19,15 @@ public class KohonenNetwork extends LNetwork {
 	protected int dIndex=0;
 	protected int[] dd=new int[0];				//Values of distance
 	protected int[] zd=new int[0];				//Index of distanceChange
+	
+	protected int[] rowsNumber;
 	protected BiFunction<Integer,Integer,Float> distanceFunction=linear1DFunction;
 	
-	int[] maxIndex;								//Index and value of neuron of each part of network. Used in multiThreading
-	float[] maxValue;
+	protected int[] maxIndex;								//Index and value of neuron of each part of network. Used in multiThreading
+	protected float[] maxValue;
+	
+	//PrintWriter log;
+	//private float acumulatedError=0;
 	
 	public KohonenNetwork(float[][][] weights, OutputFunction outputFunction) {
 		super(weights,outputFunction);
@@ -35,11 +40,6 @@ public class KohonenNetwork extends LNetwork {
 	}
 	public KohonenNetwork(int inputsNumber,int[] layersSize, OutputFunction outputFunction) {
 		super(inputsNumber,layersSize,outputFunction);
-		for(int i=0;i<weights.length;i++) {
-			for(int j=0;j<weights[i].length;j++) {
-				normalizeData(weights[i][j]);
-			}
-		}
 		init();
 	}
 	public KohonenNetwork(int inputsNumber,int[] layersSize, OutputFunction outputFunction, boolean initializeOpenCL) {
@@ -55,19 +55,7 @@ public class KohonenNetwork extends LNetwork {
 		for(float[][] layer:weights)
 			for(float[] neuron:layer) {
 				neuron[0]=0;
-				//normalizeData(neuron);
 			}
-	}
-	
-	public void normalizeData(float[] data) {
-		float sum=data[0]*data[0];
-		for(int i=1;i<data.length;i++)
-			sum+=data[i]*data[i];
-		if(sum!=0) {
-			sum=(float)Math.sqrt(sum);
-			for(int i=0;i<data.length;i++)
-				data[i]/=sum;
-		}
 	}
 	
 	public void setDistances(int[] dd,int[] zd) {
@@ -103,6 +91,7 @@ public class KohonenNetwork extends LNetwork {
 		distanceFunction=linear1DFunction;
 	}
 	public void setLinear2DSquereFunction(int rowsNumber) {
+		this.rowsNumber=new int[] {rowsNumber};
 		distanceFunction=new BiFunction<Integer,Integer,Float>(){
 			public Float apply(Integer t, Integer u) {
 				int dy=t/rowsNumber-u/rowsNumber;
@@ -117,6 +106,7 @@ public class KohonenNetwork extends LNetwork {
 		};
 	}
 	public void setLinear2DEuclideanFunction(int rowsNumber) {
+		this.rowsNumber=new int[] {rowsNumber};
 		distanceFunction=new BiFunction<Integer,Integer,Float>(){
 			public Float apply(Integer t, Integer u) {
 				int dy=t/rowsNumber-u/rowsNumber;
@@ -137,6 +127,9 @@ public class KohonenNetwork extends LNetwork {
 		maxIndex=new int[threadsNumber];
 		maxValue=new float[threadsNumber];
 	}
+	public int[] getRowsNumber() {
+		return rowsNumber;
+	}
 	
 	public byte getSimMethodID() {
 		return 1;
@@ -150,6 +143,15 @@ public class KohonenNetwork extends LNetwork {
 //		super.clearCLMem();
 //		CL.clReleaseMemObject(winIndex);
 //	}
+	public void startLearning() {
+//		try {
+//			if(log==null)
+//				log=new PrintWriter(new FileOutputStream("a.txt"));
+//		} catch (FileNotFoundException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
+	}
 	protected void lSimulate(int elementNr) {
 		float[] inputData=learningSequence[elementNr].inputs;
 		
@@ -157,7 +159,7 @@ public class KohonenNetwork extends LNetwork {
 			int index=0;
 			if(i>0)inputData=outputs[i-1];
 			
-			for(int j=0;j<layersSize[i];j++) {
+			for(int j=0;j<layersSize[i+1];j++) {
 				outputs[i][j]=0;
 				for(int k=1;k<weights[i][j].length;k++){
 					float delta=weights[i][j][k]-inputData[k-1];
@@ -165,7 +167,6 @@ public class KohonenNetwork extends LNetwork {
 					//output[i][j]=Math.fma(delta, delta, output[i][j]);
 				}
 				outputs[i][j]=-(float)Math.sqrt(outputs[i][j]);
-				
 				//output[layer][i]=function.function(output[layer][i]);
 				
 				if(outputs[i][j]>outputs[i][index])index=j;
@@ -198,6 +199,8 @@ public class KohonenNetwork extends LNetwork {
 			int maxIndex=0;
 			for(int j=1;j<weights[i].length;j++) 
 				if(outputs[i][j]>outputs[i][maxIndex])maxIndex=j;
+			
+			//acumulatedError+=outputs[i][maxIndex];
 			
 			for(int j=0;j<weights[i].length;j++) {
 				float h=distanceFunction.apply(j, maxIndex);
@@ -236,5 +239,11 @@ public class KohonenNetwork extends LNetwork {
 		this.cycleNumber+=delta;
 		if(dIndex!=zd.length&&cycleNumber<zd[dIndex])
 			maxDistance=dd[dIndex++];
+		
+//		if(cycle%10==0) {
+//			log.println(acumulatedError);
+//			log.flush();
+//			acumulatedError=0;
+//		}
 	}
 }

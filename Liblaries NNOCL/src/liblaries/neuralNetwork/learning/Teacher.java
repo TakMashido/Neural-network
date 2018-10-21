@@ -7,7 +7,7 @@ import java.util.concurrent.BrokenBarrierException;
 import liblaries.neuralNetwork.errors.NeuralException;
 
 public class Teacher{
-	private LNetwork network;
+	protected LNetwork network;
 	public float n=.2f;
 	public float m=.13f;
 	public int cycleNumber=10000;
@@ -19,9 +19,9 @@ public class Teacher{
 	
 	public Random random=new Random();
 	
-	private int elementNr;													//number of actual simulate element from LS
+	protected int elementNr;													//number of actual simulate element from LS
 	
-	private int actualCycle=-2;											//-1: checking LS, -2: learning end, other: actual cycle of learn
+	protected int actualCycle=-2;												//-1: checking LS, -2: learning end, other: actual cycle of learn
 	
 	public Teacher(){
 		dn=new float[]{n};
@@ -129,7 +129,6 @@ public class Teacher{
 	public LNetwork getNetwork() {
 		return network;
 	}
-	
 	
 	public LNetwork teach() throws NeuralException{
 		network.startLearning();

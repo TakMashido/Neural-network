@@ -3,8 +3,6 @@ package liblaries.neuralNetwork.learning;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 
 import org.jocl.CL;
@@ -27,14 +25,14 @@ public abstract class LNetwork{
 	protected float[][][] weights;												//input layer have  ID=0	[a][b][c] a->layer, b->neuron, c->connection
 	protected float[][][] deltaWeights;											//							[a][b][c]
 	protected float[][] error;													//							[a][b]
-	protected float[][] outputs;													//							[a][b]
+	protected float[][] outputs;												//							[a][b]
 	protected int inputsNumber;
 	
 	protected LearningSequence[] learningSequence;
 	protected OutputFunction outputFunction;
 	
-	int[] layersSize;															//[0] inputNumber, [1] neurons in layer 0, [2] neurons in layer 1, ...
-	int layersNumber;
+	protected int[] layersSize;															//[0] inputNumber, [1] neurons in layer 0, [2] neurons in layer 1, ...
+	protected int layersNumber;
 	
 	protected boolean openCLLoaded=false;
 	protected cl_context context;
@@ -152,7 +150,7 @@ public abstract class LNetwork{
 		for(int i=0;i<layersSize.length-1;i++){
 			int connectionsNumber=layersSize[i]+1;
 			if(weights[i]==null)
-				weights[i]=new float[layersSize[i+1]+1][connectionsNumber];
+				weights[i]=new float[layersSize[i+1]][connectionsNumber];
 			
 			float maxWeighth=1/(float)(layersSize[i]/20+1)+0.000000000000000001f;
 			
@@ -395,7 +393,8 @@ public abstract class LNetwork{
 	public void startLearning() {
 		if(!learning) {
 			learning=true;
-		}else throw new NeuralException(3);
+		}else throw new NeuralException(NeuralException.learningInProgress);
+		if(learningSequence==null)throw new NeuralException(NeuralException.noLearningSequence);
 		if(supportsMultiThreading) {
 			threadsCoordinator=new WorkersCoordinator(threadsNumber);
 		}
