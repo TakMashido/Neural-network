@@ -2,10 +2,7 @@ package liblaries.neuralNetwork.learning;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-<<<<<<< HEAD
-=======
 import java.io.IOException;
->>>>>>> 4176e412b04bd49f949c03c810eaff8f5908d6d2
 import java.io.PrintWriter;
 import java.util.Arrays;
 
@@ -23,7 +20,7 @@ public class GrowingNeuralGas extends LNetwork{
 	int addCycles;
 	int cyclesToAdd;
 	
-	float acumulatedError=0;
+//	float acumulatedError=0;
 	
 	public GrowingNeuralGas(int inputsNumber) {
 		this(inputsNumber,300);
@@ -67,16 +64,12 @@ public class GrowingNeuralGas extends LNetwork{
 		super.startLearning();
 		if(cyclesToAdd<=0)
 			cyclesToAdd=addCycles;
-		try {
-<<<<<<< HEAD
-			if(log==null)
-				log=new PrintWriter(new FileOutputStream("a.txt"));
-=======
-			log=new PrintWriter(new FileOutputStream("a.txt"));
->>>>>>> 4176e412b04bd49f949c03c810eaff8f5908d6d2
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
+//		try {
+//			if(log==null)
+//				log=new PrintWriter(new FileOutputStream("a.txt"));
+//		} catch (FileNotFoundException e) {
+//			e.printStackTrace();
+//		}
 	}
 	
 	protected void lSimulate(int elemntNr, int start,int end,int layer, int threadID) {
@@ -118,7 +111,7 @@ public class GrowingNeuralGas extends LNetwork{
 			max2=winner;
 		}
 		
-		acumulatedError+=outputs[0][winner];
+//		acumulatedError+=outputs[0][winner];
 		
 		connections[max][max2]=-2;
 		for(int i=0;i<winner;i++) {
@@ -140,7 +133,7 @@ public class GrowingNeuralGas extends LNetwork{
 		
 		
 	}
-	PrintWriter log=null;
+	//PrintWriter log=null;
 	
 	public void update(int cycle) {
 		if(--cyclesToAdd==0&&layersSize[1]<maxNeurons-1) {
@@ -176,19 +169,12 @@ public class GrowingNeuralGas extends LNetwork{
 			connections[newIndex][neuron]=0;
 			connections[newIndex][neuron2]=0;
 		}
-<<<<<<< HEAD
-=======
-	}
-	PrintWriter log=null;
-	
-	public void update(int cycle) {
->>>>>>> 4176e412b04bd49f949c03c810eaff8f5908d6d2
-		if(cycle%10==0) {
-			//System.out.println(acumulatedError+" "+layersSize[1]);
-			log.println(Float.toString(acumulatedError));
-			log.flush();
-		}
-		acumulatedError=0;
+//		if(cycle%10==0) {
+//			//System.out.println(acumulatedError+" "+layersSize[1]);
+//			log.println(Float.toString(acumulatedError));
+//			log.flush();
+//		}
+//		acumulatedError=0;
 	}
 	private void deleteConnection(int a,int b) {
 		System.out.println(a+" "+b);
