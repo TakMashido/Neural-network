@@ -2,6 +2,10 @@ package liblaries.neuralNetwork.learning;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+<<<<<<< HEAD
+=======
+import java.io.IOException;
+>>>>>>> 4176e412b04bd49f949c03c810eaff8f5908d6d2
 import java.io.PrintWriter;
 import java.util.Arrays;
 
@@ -64,8 +68,12 @@ public class GrowingNeuralGas extends LNetwork{
 		if(cyclesToAdd<=0)
 			cyclesToAdd=addCycles;
 		try {
+<<<<<<< HEAD
 			if(log==null)
 				log=new PrintWriter(new FileOutputStream("a.txt"));
+=======
+			log=new PrintWriter(new FileOutputStream("a.txt"));
+>>>>>>> 4176e412b04bd49f949c03c810eaff8f5908d6d2
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -168,6 +176,13 @@ public class GrowingNeuralGas extends LNetwork{
 			connections[newIndex][neuron]=0;
 			connections[newIndex][neuron2]=0;
 		}
+<<<<<<< HEAD
+=======
+	}
+	PrintWriter log=null;
+	
+	public void update(int cycle) {
+>>>>>>> 4176e412b04bd49f949c03c810eaff8f5908d6d2
 		if(cycle%10==0) {
 			//System.out.println(acumulatedError+" "+layersSize[1]);
 			log.println(Float.toString(acumulatedError));
